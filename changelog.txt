@@ -1,3 +1,9 @@
+* rev. 10 - 2026 02 13
+
+- switch to one big file
+- added undu/redo
+- upload and download mechanizm
+
 * rev. 9 - 2025 02 27
 
 - Improved color selector.
