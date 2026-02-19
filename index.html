@@ -58,6 +58,24 @@
 				margin-left: 1px;
 				background-color: #eee;
 			}
+
+			.gui.collapsed > *:not(.collapse-btn):not(.drag-handle):not(.brush-selector) {
+				display: none !important;
+			}
+			.gui.collapsed {
+				padding: 5px;
+				min-width: 0;
+				width: auto;
+			}
+			.collapse-btn {
+				padding: 2px 6px;
+				cursor: pointer;
+				font-size: 14px;
+				color: #888;
+				user-select: none;
+				border: none;
+				background: none;
+			}
 		</style>
 	</head>
 	<body>
@@ -1304,8 +1322,16 @@ Menu.prototype =
 		this.container.style.position = 'absolute';
 		this.container.style.top = '0px';
 
+		// Collapse button
+		this.collapseBtn = document.createElement('span');
+		this.collapseBtn.className = 'collapse-btn';
+		this.collapseBtn.textContent = '«';
+		this.collapseBtn.title = 'Collapse menu (H)';
+		this.container.appendChild(this.collapseBtn);
+
 		// Drag handle
 		this.dragHandle = document.createElement("span");
+		this.dragHandle.className = 'drag-handle';
 		this.dragHandle.innerHTML = '&#9776;';
 		this.dragHandle.style.cursor = 'grab';
 		this.dragHandle.style.marginRight = '6px';
@@ -1380,6 +1406,7 @@ Menu.prototype =
 		this.container.appendChild(space);
 
 		this.selector = document.createElement("select");
+		this.selector.className = 'brush-selector';
 
 		for (i = 0; i < BRUSHES.length; i++)
 		{
@@ -1483,7 +1510,8 @@ Menu.prototype =
 		this.clear.innerHTML = 'Clear';
 		this.container.appendChild(this.clear);
 
-		separator = document.createTextNode(" | ");
+		separator = document.createElement("span");
+		separator.textContent = " | ";
 		this.container.appendChild(separator);
 
 		this.zoomIndicator = document.createElement("span");
@@ -1500,7 +1528,8 @@ Menu.prototype =
 		this.zoomReset.innerHTML = 'Reset Zoom';
 		this.container.appendChild(this.zoomReset);
 
-		separator = document.createTextNode(" | ");
+		separator = document.createElement("span");
+		separator.textContent = " | ";
 		this.container.appendChild(separator);
 
 		this.about = document.createElement("About");
@@ -1530,6 +1559,14 @@ Menu.prototype =
 	setZoomLevel: function( level )
 	{
 		this.zoomIndicator.innerHTML = level.toFixed(1) + 'x';
+	},
+
+	toggleCollapse: function()
+	{
+		var collapsed = this.container.classList.toggle('collapsed');
+		this.collapseBtn.textContent = collapsed ? '≡' : '«';
+		this.collapseBtn.title = collapsed ? 'Expand menu (H)' : 'Collapse menu (H)';
+		localStorage.setItem('harmonyMenuCollapsed', collapsed ? '1' : '0');
 	}
 }
 
@@ -1568,7 +1605,12 @@ About.prototype =
 
 		text = document.createElement("p");
 		text.style.textAlign = 'center';
-		text.innerHTML = 'Brush: <span class="key">d</span><span class="key">f</span> size, <span class="key">r</span> reset<br />Color: <span class="key">shift</span> wheel, <span class="key">alt</span> picker<br />';
+		text.innerHTML = 'Brush: <span class="key">d</span><span class="key">f</span> size, <span class="key">r</span> reset<br />Color: <span class="key">shift</span> wheel, <span class="key">alt</span> picker<br />Zoom: <span class="key">ctrl+scroll</span> or pinch, <span class="key">b</span> reset<br />Menu: <span class="key">H</span> collapse / expand';
+		containerText.appendChild(text);
+
+		text = document.createElement("p");
+		text.style.textAlign = 'center';
+		text.innerHTML = '<strong>Touch gestures</strong><br />2-finger tap — Undo<br />3-finger tap — Redo<br />2-finger pinch — Zoom<br />3-finger swipe down — Collapse menu';
 		containerText.appendChild(text);
 
 		text = document.createElement("p");
@@ -1585,6 +1627,14 @@ About.prototype =
 
 		text = document.createElement("p");
 		text.innerHTML = 'If you like the tool, you can use this button to share your love ;)';
+		containerText.appendChild(text);
+
+		text = document.createElement("hr");
+		containerText.appendChild(text);
+
+		text = document.createElement("p");
+		text.style.textAlign = 'center';
+		text.innerHTML = 'Forked version by <strong>Barak Bloch</strong>';
 		containerText.appendChild(text);
 
 		text = document.createElement("p");
@@ -1763,7 +1813,16 @@ function init()
 	menu.zoomReset.addEventListener('touchend', onMenuZoomReset, false);
 	menu.container.addEventListener('mouseover', onMenuMouseOver, { passive: false });
 	menu.container.addEventListener('mouseout', onMenuMouseOut, { passive: false });
+	menu.collapseBtn.addEventListener('click', function() { menu.toggleCollapse(); });
+	menu.collapseBtn.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+	menu.collapseBtn.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: true });
 	container.appendChild(menu.container);
+
+	if (localStorage.getItem('harmonyMenuCollapsed') === '1') {
+		menu.container.classList.add('collapsed');
+		menu.collapseBtn.textContent = '≡';
+		menu.collapseBtn.title = 'Expand menu (H)';
+	}
 
 	if (STORAGE)
 	{
@@ -1844,6 +1903,28 @@ function init()
 	canvas.addEventListener('mousedown', onCanvasMouseDown, { passive: false });
 	canvas.addEventListener('touchstart', onCanvasTouchStart, { passive: false });
 	canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+
+	var _swipeStartY = null;
+	var _swipeStartCount = 0;
+	document.addEventListener('touchstart', function(e) {
+		if (e.touches.length === 3) {
+			_swipeStartY = e.touches[0].clientY;
+			_swipeStartCount = 3;
+		} else {
+			_swipeStartY = null;
+			_swipeStartCount = 0;
+		}
+	}, { passive: true });
+	document.addEventListener('touchend', function(e) {
+		if (_swipeStartCount === 3 && _swipeStartY !== null) {
+			var deltaY = e.changedTouches[0].clientY - _swipeStartY;
+			if (deltaY > 40) {
+				menu.toggleCollapse();
+			}
+		}
+		_swipeStartY = null;
+		_swipeStartCount = 0;
+	}, { passive: true });
 
 	onWindowResize(null);
 
@@ -1939,6 +2020,13 @@ function onWindowKeyDown( event )
 
 		case 70: // f
 			BRUSH_SIZE ++;
+			break;
+
+		case 72: // h
+			if (document.activeElement.tagName !== 'INPUT' &&
+				document.activeElement.tagName !== 'SELECT') {
+				menu.toggleCollapse();
+			}
 			break;
 	}
 }

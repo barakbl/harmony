@@ -1,3 +1,21 @@
+* rev. 11 - 2026 02 19
+
+- Collapsible menu bar: click « to collapse to a compact pill, click ≡ to expand
+- Keyboard shortcut <H> to toggle menu collapse / expand
+- 3-finger swipe down anywhere on canvas to toggle menu collapse
+- Collapsed menu shows drag handle and brush selector for quick access
+- Collapsed/expanded state persisted across page reloads (localStorage)
+- Floating menu: draggable by ☰ handle, position preserved when collapsing
+- Pinch-to-zoom (up to 50x) and Ctrl+scroll zoom with zoom level indicator
+- Reset zoom button and <b> shortcut
+- Brush opacity slider
+- Eraser tool
+- Symmetry drawing mode (2 / 3 / 4 / 6 / 8 axes)
+- Date stamp appended to downloaded SVG filename
+- About window: added zoom and menu keyboard shortcuts
+- About window: added touch gestures reference (2-finger tap undo, 3-finger tap redo, pinch zoom, 3-finger swipe collapse)
+- About window: forked version credit (Barak Bloch)
+
 * rev. 10 - 2026 02 13
 
 - switch to one big file
