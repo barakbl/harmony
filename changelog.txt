@@ -1,3 +1,10 @@
+* rev. 12 - 2026 02 22
+
+- Added 8 new brushes: Neon, Watercolor, Splatter, Calligraphy, Smoke, Stipple, Lightning, Chalk
+- New brushes marked with red (new) label in the brush selector
+- About window: moved forked version credit (Barak Bloch) directly under the title
+- About window: Barak Bloch name is now a link to the GitHub fork
+
 * rev. 11 - 2026 02 19
 
 - Collapsible menu bar: click « to collapse to a compact pill, click ≡ to expand
