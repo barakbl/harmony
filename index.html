@@ -52,6 +52,11 @@
 				cursor: pointer;
 			}
 
+			.button.rec-active
+			{
+				color: #f44;
+			}
+
 			.key
 			{
 				padding: 0px 8px;
@@ -886,6 +891,545 @@ eraser.prototype =
 	}
 }
 
+// brushes/neon.js
+
+function neon( context )
+{
+	this.init( context );
+}
+
+neon.prototype =
+{
+	context: null,
+	prevMouseX: null, prevMouseY: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+
+		this.context.lineCap = 'round';
+
+		// Outer glow
+		this.context.lineWidth = BRUSH_SIZE * 8;
+		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.02 * p ) + ")";
+		this.context.beginPath();
+		this.context.moveTo( this.prevMouseX, this.prevMouseY );
+		this.context.lineTo( mouseX, mouseY );
+		this.context.stroke();
+
+		// Mid glow
+		this.context.lineWidth = BRUSH_SIZE * 4;
+		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.05 * p ) + ")";
+		this.context.beginPath();
+		this.context.moveTo( this.prevMouseX, this.prevMouseY );
+		this.context.lineTo( mouseX, mouseY );
+		this.context.stroke();
+
+		// Bright core
+		this.context.lineWidth = Math.max( 1, BRUSH_SIZE * 0.5 );
+		this.context.strokeStyle = "rgba(" + Math.min( 255, r + 100 ) + "," + Math.min( 255, g + 100 ) + "," + Math.min( 255, b + 100 ) + "," + ( 0.9 * p ) + ")";
+		this.context.beginPath();
+		this.context.moveTo( this.prevMouseX, this.prevMouseY );
+		this.context.lineTo( mouseX, mouseY );
+		this.context.stroke();
+
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	strokeEnd: function() {}
+}
+
+// brushes/watercolor.js
+
+function watercolor( context )
+{
+	this.init( context );
+}
+
+watercolor.prototype =
+{
+	context: null,
+	prevMouseX: null, prevMouseY: null,
+	points: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+		this.points = [];
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+		var i, ox, oy;
+
+		this.points.push( [ mouseX, mouseY ] );
+
+		this.context.lineCap = 'round';
+
+		// Multiple overlapping offset passes for soft bleed
+		for ( i = 0; i < 10; i++ )
+		{
+			ox = ( Math.random() - 0.5 ) * BRUSH_SIZE * 1.5;
+			oy = ( Math.random() - 0.5 ) * BRUSH_SIZE * 1.5;
+
+			this.context.lineWidth = BRUSH_SIZE * ( 0.5 + Math.random() * 0.5 );
+			this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.015 * p ) + ")";
+			this.context.beginPath();
+			this.context.moveTo( this.prevMouseX + ox, this.prevMouseY + oy );
+			this.context.lineTo( mouseX + ox, mouseY + oy );
+			this.context.stroke();
+		}
+
+		// Occasional bleed toward a history point
+		if ( this.points.length > 5 && Math.random() < 0.3 )
+		{
+			var idx = Math.floor( Math.random() * this.points.length );
+			var dx = this.points[ idx ][ 0 ] - mouseX;
+			var dy = this.points[ idx ][ 1 ] - mouseY;
+
+			if ( dx * dx + dy * dy < BRUSH_SIZE * BRUSH_SIZE * 16 )
+			{
+				this.context.lineWidth = BRUSH_SIZE * 0.5;
+				this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.008 * p ) + ")";
+				this.context.beginPath();
+				this.context.moveTo( mouseX, mouseY );
+				this.context.lineTo( mouseX + dx * 0.5, mouseY + dy * 0.5 );
+				this.context.stroke();
+			}
+		}
+
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	strokeEnd: function() {}
+}
+
+// brushes/splatter.js
+
+function splatter( context )
+{
+	this.init( context );
+}
+
+splatter.prototype =
+{
+	context: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY ) {},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+		var count = Math.floor( BRUSH_SIZE * 1.5 ) + 5;
+		var radius = BRUSH_SIZE * 3;
+		var i, angle, dist, x, y, dotSize;
+
+		for ( i = 0; i < count; i++ )
+		{
+			angle = Math.random() * Math.PI * 2;
+			dist = Math.random() * radius;
+			x = mouseX + Math.cos( angle ) * dist;
+			y = mouseY + Math.sin( angle ) * dist;
+			dotSize = Math.random() * BRUSH_SIZE * 0.4 + 0.5;
+
+			this.context.beginPath();
+			this.context.arc( x, y, dotSize, 0, Math.PI * 2, false );
+			this.context.fillStyle = "rgba(" + r + "," + g + "," + b + "," + ( Math.random() * 0.5 * p ) + ")";
+			this.context.fill();
+		}
+	},
+
+	strokeEnd: function() {}
+}
+
+// brushes/calligraphy.js
+
+function calligraphy( context )
+{
+	this.init( context );
+}
+
+calligraphy.prototype =
+{
+	context: null,
+	prevMouseX: null, prevMouseY: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+		var dx = mouseX - this.prevMouseX;
+		var dy = mouseY - this.prevMouseY;
+		var angle = Math.atan2( dy, dx );
+		var nibAngle = Math.PI / 4; // 45-degree nib
+
+		// Width = perpendicular projection of nib relative to stroke direction
+		var width = Math.abs( Math.cos( angle - nibAngle ) ) * BRUSH_SIZE + 1;
+
+		this.context.lineWidth = width;
+		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.9 * p ) + ")";
+		this.context.lineCap = 'butt';
+		this.context.beginPath();
+		this.context.moveTo( this.prevMouseX, this.prevMouseY );
+		this.context.lineTo( mouseX, mouseY );
+		this.context.stroke();
+
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	strokeEnd: function() {}
+}
+
+// brushes/smoke.js
+
+function smoke( context )
+{
+	this.init( context );
+}
+
+smoke.prototype =
+{
+	context: null,
+	mouseX: null, mouseY: null,
+	particles: null,
+	interval: null,
+	isDrawing: false,
+
+	init: function( context )
+	{
+		var scope = this;
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+		this.particles = [];
+		this.mouseX = SCREEN_WIDTH / 2;
+		this.mouseY = SCREEN_HEIGHT / 2;
+		this.isDrawing = false;
+
+		this.interval = setInterval( function() { scope.update(); }, 1000 / 60 );
+	},
+
+	update: function()
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var i, p;
+
+		if ( this.isDrawing )
+		{
+			for ( var j = 0; j < 3; j++ )
+			{
+				this.particles.push({
+					x: this.mouseX + ( Math.random() - 0.5 ) * BRUSH_SIZE,
+					y: this.mouseY + ( Math.random() - 0.5 ) * BRUSH_SIZE,
+					vx: ( Math.random() - 0.5 ) * 0.5,
+					vy: -( Math.random() * 1.5 + 0.5 ),
+					radius: Math.random() * BRUSH_SIZE * 0.5 + BRUSH_SIZE * 0.2,
+					alpha: Math.random() * 0.3 * BRUSH_PRESSURE * BRUSH_OPACITY
+				});
+			}
+		}
+
+		for ( i = this.particles.length - 1; i >= 0; i-- )
+		{
+			p = this.particles[ i ];
+			p.x += p.vx;
+			p.y += p.vy;
+			p.vx += ( Math.random() - 0.5 ) * 0.2;
+			p.radius *= 1.01;
+			p.alpha *= 0.97;
+
+			if ( p.alpha < 0.002 )
+			{
+				this.particles.splice( i, 1 );
+				continue;
+			}
+
+			this.context.beginPath();
+			this.context.arc( p.x, p.y, p.radius, 0, Math.PI * 2, false );
+			this.context.fillStyle = "rgba(" + r + "," + g + "," + b + "," + p.alpha + ")";
+			this.context.fill();
+		}
+	},
+
+	destroy: function()
+	{
+		clearInterval( this.interval );
+	},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.mouseX = mouseX;
+		this.mouseY = mouseY;
+		this.isDrawing = true;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		this.mouseX = mouseX;
+		this.mouseY = mouseY;
+	},
+
+	strokeEnd: function()
+	{
+		this.isDrawing = false;
+	}
+}
+
+// brushes/stipple.js
+
+function stipple( context )
+{
+	this.init( context );
+}
+
+stipple.prototype =
+{
+	context: null,
+	prevMouseX: null, prevMouseY: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+		var count = Math.floor( BRUSH_SIZE * 0.8 ) + 3;
+		var spread = BRUSH_SIZE * 0.8;
+		var i, x, y, dr, dg, db;
+
+		for ( i = 0; i < count; i++ )
+		{
+			x = mouseX + ( Math.random() - 0.5 ) * spread * 2;
+			y = mouseY + ( Math.random() - 0.5 ) * spread * 2;
+
+			// Slight color variation for pointillist feel
+			dr = Math.min( 255, Math.max( 0, r + Math.floor( ( Math.random() - 0.5 ) * 30 ) ) );
+			dg = Math.min( 255, Math.max( 0, g + Math.floor( ( Math.random() - 0.5 ) * 30 ) ) );
+			db = Math.min( 255, Math.max( 0, b + Math.floor( ( Math.random() - 0.5 ) * 30 ) ) );
+
+			this.context.beginPath();
+			this.context.arc( x, y, Math.random() * 1.5 + 0.5, 0, Math.PI * 2, false );
+			this.context.fillStyle = "rgba(" + dr + "," + dg + "," + db + "," + ( 0.6 * p * Math.random() ) + ")";
+			this.context.fill();
+		}
+
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	strokeEnd: function() {}
+}
+
+// brushes/lightning.js
+
+function lightning( context )
+{
+	this.init( context );
+}
+
+lightning.prototype =
+{
+	context: null,
+	prevMouseX: null, prevMouseY: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+		var segments = 6;
+		var dx = mouseX - this.prevMouseX;
+		var dy = mouseY - this.prevMouseY;
+		var len = Math.sqrt( dx * dx + dy * dy ) || 1;
+		var nx = -dy / len, ny = dx / len; // unit perpendicular
+		var i, pts = [ [ this.prevMouseX, this.prevMouseY ] ];
+
+		for ( i = 1; i < segments; i++ )
+		{
+			var t = i / segments;
+			var disp = ( Math.random() - 0.5 ) * BRUSH_SIZE * 3;
+			pts.push( [
+				this.prevMouseX + dx * t + nx * disp,
+				this.prevMouseY + dy * t + ny * disp
+			] );
+		}
+		pts.push( [ mouseX, mouseY ] );
+
+		// Outer glow
+		this.context.lineWidth = BRUSH_SIZE * 1.5;
+		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.04 * p ) + ")";
+		this.context.lineCap = 'round';
+		this.context.beginPath();
+		this.context.moveTo( pts[ 0 ][ 0 ], pts[ 0 ][ 1 ] );
+		for ( i = 1; i < pts.length; i++ ) this.context.lineTo( pts[ i ][ 0 ], pts[ i ][ 1 ] );
+		this.context.stroke();
+
+		// Jagged bolt
+		this.context.lineWidth = Math.max( 0.5, BRUSH_SIZE * 0.2 );
+		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.85 * p ) + ")";
+		this.context.beginPath();
+		this.context.moveTo( pts[ 0 ][ 0 ], pts[ 0 ][ 1 ] );
+		for ( i = 1; i < pts.length; i++ ) this.context.lineTo( pts[ i ][ 0 ], pts[ i ][ 1 ] );
+		this.context.stroke();
+
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	strokeEnd: function() {}
+}
+
+// brushes/chalk.js
+
+function chalk( context )
+{
+	this.init( context );
+}
+
+chalk.prototype =
+{
+	context: null,
+	prevMouseX: null, prevMouseY: null,
+
+	init: function( context )
+	{
+		this.context = context;
+		this.context.globalCompositeOperation = 'source-over';
+	},
+
+	destroy: function() {},
+
+	strokeStart: function( mouseX, mouseY )
+	{
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	stroke: function( mouseX, mouseY )
+	{
+		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+		var i, ox, oy, t;
+
+		this.context.lineCap = 'round';
+
+		// Multiple thin passes with random offsets and gaps (chalk grain)
+		for ( i = 0; i < 5; i++ )
+		{
+			if ( Math.random() < 0.25 ) continue; // gap = rough texture
+
+			ox = ( Math.random() - 0.5 ) * BRUSH_SIZE * 0.8;
+			oy = ( Math.random() - 0.5 ) * BRUSH_SIZE * 0.8;
+
+			this.context.lineWidth = Math.random() * BRUSH_SIZE * 0.4 + 0.5;
+			this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( Math.random() * 0.25 * p ) + ")";
+			this.context.beginPath();
+			this.context.moveTo( this.prevMouseX + ox, this.prevMouseY + oy );
+			this.context.lineTo( mouseX + ox, mouseY + oy );
+			this.context.stroke();
+		}
+
+		// Sparse grain dots along the stroke
+		var dotCount = Math.floor( BRUSH_SIZE * 0.5 );
+		for ( i = 0; i < dotCount; i++ )
+		{
+			t = Math.random();
+			ox = ( Math.random() - 0.5 ) * BRUSH_SIZE;
+			oy = ( Math.random() - 0.5 ) * BRUSH_SIZE;
+
+			this.context.beginPath();
+			this.context.arc(
+				this.prevMouseX + ( mouseX - this.prevMouseX ) * t + ox,
+				this.prevMouseY + ( mouseY - this.prevMouseY ) * t + oy,
+				Math.random() * 0.8 + 0.3, 0, Math.PI * 2, false
+			);
+			this.context.fillStyle = "rgba(" + r + "," + g + "," + b + "," + ( Math.random() * 0.3 * p ) + ")";
+			this.context.fill();
+		}
+
+		this.prevMouseX = mouseX;
+		this.prevMouseY = mouseY;
+	},
+
+	strokeEnd: function() {}
+}
+
 // colorutils.js
 
 function HSB2RGB(hue, sat, val)
@@ -1302,6 +1846,7 @@ Menu.prototype =
 	symmetrySelector: null,
 	save: null,
 	download: null,
+	gif: null,
 	upload: null,
 	undo: null,
 	redo: null,
@@ -1412,7 +1957,9 @@ Menu.prototype =
 		{
 			option = document.createElement("option");
 			option.id = i;
-			option.innerHTML = BRUSHES[i].toUpperCase();
+			var isNew = NEW_BRUSHES.indexOf( BRUSHES[i] ) !== -1;
+			option.textContent = BRUSHES[i].toUpperCase() + ( isNew ? ' (new)' : '' );
+			if ( isNew ) option.style.color = 'red';
 			this.selector.appendChild(option);
 		}
 
@@ -1477,6 +2024,22 @@ Menu.prototype =
 		this.download.className = 'button';
 		this.download.innerHTML = 'Download';
 		this.container.appendChild(this.download);
+
+		space = document.createTextNode(" ");
+		this.container.appendChild(space);
+
+		this.rec = document.createElement("span");
+		this.rec.className = 'button';
+		this.rec.innerHTML = 'Rec';
+		this.container.appendChild(this.rec);
+
+		space = document.createTextNode(" ");
+		this.container.appendChild(space);
+
+		this.gif = document.createElement("span");
+		this.gif.className = 'button';
+		this.gif.innerHTML = 'Gif';
+		this.container.appendChild(this.gif);
 
 		space = document.createTextNode(" ");
 		this.container.appendChild(space);
@@ -1605,6 +2168,11 @@ About.prototype =
 
 		text = document.createElement("p");
 		text.style.textAlign = 'center';
+		text.innerHTML = 'Forked version by <a href="https://github.com/barakbl/harmony" target="_blank"><strong>Barak Bloch</strong></a>';
+		containerText.appendChild(text);
+
+		text = document.createElement("p");
+		text.style.textAlign = 'center';
 		text.innerHTML = 'Brush: <span class="key">d</span><span class="key">f</span> size, <span class="key">r</span> reset<br />Color: <span class="key">shift</span> wheel, <span class="key">alt</span> picker<br />Zoom: <span class="key">ctrl+scroll</span> or pinch, <span class="key">b</span> reset<br />Menu: <span class="key">H</span> collapse / expand';
 		containerText.appendChild(text);
 
@@ -1634,11 +2202,6 @@ About.prototype =
 
 		text = document.createElement("p");
 		text.style.textAlign = 'center';
-		text.innerHTML = 'Forked version by <strong>Barak Bloch</strong>';
-		containerText.appendChild(text);
-
-		text = document.createElement("p");
-		text.style.textAlign = 'center';
 		text.innerHTML = '<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank"><input type="hidden" name="cmd" value="_s-xclick"><input type="hidden" name="hosted_button_id" value="VY7767JMMMYM4"><input type="image" src="https://www.paypal.com/en_GB/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online."><img alt="" border="0" src="https://www.paypal.com/en_GB/i/scr/pixel.gif" width="1" height="1"></form>';
 		containerText.appendChild(text);
 	},
@@ -1657,7 +2220,8 @@ About.prototype =
 // main.js
 
 const REV = 9;
-const BRUSHES = ["sketchy", "shaded", "chrome", "fur", "longfur", "web", "", "simple", "squares", "ribbon", "", "circles", "grid", "eraser"];
+const BRUSHES = ["sketchy", "shaded", "chrome", "fur", "longfur", "web", "", "simple", "squares", "ribbon", "", "circles", "grid", "eraser", "", "neon", "watercolor", "splatter", "calligraphy", "smoke", "stipple", "lightning", "chalk"];
+const NEW_BRUSHES = ["neon", "watercolor", "splatter", "calligraphy", "smoke", "stipple", "lightning", "chalk"];
 const USER_AGENT = navigator.userAgent.toLowerCase();
 
 var SCREEN_WIDTH = window.innerWidth,
@@ -1705,7 +2269,17 @@ var SCREEN_WIDTH = window.innerWidth,
     lastPinchCenterX = 0,
     lastPinchCenterY = 0,
     ZOOM_MIN = 1,
-    ZOOM_MAX = 50;
+    ZOOM_MAX = 50,
+
+    gifFrames = [],
+    gifRecCanvas = null,
+    gifRecCtx = null,
+    gifRecGw = 0,
+    gifRecGh = 0,
+    gifLastCaptureTime = 0,
+    gifCaptureThrottle = 150,
+    gifIsRecording = false,
+    GIF_MAX_FRAMES = 200;
 
 init();
 
@@ -1799,6 +2373,10 @@ function init()
 	menu.save.addEventListener('touchend', onMenuSave, false);
 	menu.download.addEventListener('click', onMenuDownload, false);
 	menu.download.addEventListener('touchend', onMenuDownload, false);
+	menu.rec.addEventListener('click', gifToggleRecording, false);
+	menu.rec.addEventListener('touchend', gifToggleRecording, false);
+	menu.gif.addEventListener('click', onMenuGif, false);
+	menu.gif.addEventListener('touchend', onMenuGif, false);
 	menu.upload.addEventListener('click', onMenuUpload, false);
 	menu.upload.addEventListener('touchend', onMenuUpload, false);
 	menu.undo.addEventListener('click', onMenuUndo, false);
@@ -2240,6 +2818,504 @@ function onMenuDownload()
 	URL.revokeObjectURL(url);
 }
 
+function gifInitRecCanvas()
+{
+	var w = canvas.width;
+	var h = canvas.height;
+	var maxW = 800;
+	var scale = Math.min(1, maxW / (w / PIXEL_RATIO));
+	gifRecGw = Math.round(w * scale / PIXEL_RATIO);
+	gifRecGh = Math.round(h * scale / PIXEL_RATIO);
+	gifRecCanvas = document.createElement('canvas');
+	gifRecCanvas.width = gifRecGw;
+	gifRecCanvas.height = gifRecGh;
+	gifRecCtx = gifRecCanvas.getContext('2d');
+	gifRecCtx.imageSmoothingEnabled = false;
+}
+
+function gifRecordFrame()
+{
+	var now = Date.now();
+	var elapsed = gifFrames.length > 0 ? now - gifLastCaptureTime : 0;
+	gifRecCtx.fillStyle = 'rgb(' + BACKGROUND_COLOR[0] + ',' + BACKGROUND_COLOR[1] + ',' + BACKGROUND_COLOR[2] + ')';
+	gifRecCtx.fillRect(0, 0, gifRecGw, gifRecGh);
+	gifRecCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, gifRecGw, gifRecGh);
+	gifFrames.push({ dataURL: gifRecCanvas.toDataURL('image/png'), delay: elapsed });
+	gifLastCaptureTime = now;
+
+	if (gifFrames.length >= GIF_MAX_FRAMES)
+	{
+		var thinned = [];
+		for (var i = 0; i < gifFrames.length; i += 2)
+		{
+			var f = gifFrames[i];
+			if (i + 1 < gifFrames.length)
+				f.delay += gifFrames[i + 1].delay;
+			thinned.push(f);
+		}
+		gifFrames = thinned;
+		gifCaptureThrottle = gifCaptureThrottle * 2;
+	}
+}
+
+function gifMaybeCapture()
+{
+	if (!gifIsRecording) return;
+	var now = Date.now();
+	if (now - gifLastCaptureTime >= gifCaptureThrottle)
+		gifRecordFrame();
+}
+
+function gifToggleRecording(event)
+{
+	if (event) event.preventDefault();
+	gifIsRecording = !gifIsRecording;
+
+	if (gifIsRecording)
+	{
+		if (!gifRecCanvas) gifInitRecCanvas();
+		gifFrames = [];
+		gifCaptureThrottle = 150;
+		gifLastCaptureTime = 0;
+		gifRecordFrame();
+		menu.rec.className = 'button rec-active';
+	}
+	else
+	{
+		menu.rec.className = 'button';
+	}
+}
+
+function onMenuGif()
+{
+	if (gifFrames.length > 0)
+	{
+		onMenuGifFromRecording();
+		return;
+	}
+
+	if (undoHistory.length === 0)
+	{
+		alert('No drawing history to export.');
+		return;
+	}
+
+	var originalText = menu.gif.innerHTML;
+	menu.gif.innerHTML = 'Working...';
+	menu.gif.style.pointerEvents = 'none';
+
+	setTimeout(function()
+	{
+		try
+		{
+			var w = canvas.width;
+			var h = canvas.height;
+			var tempCanvas = document.createElement('canvas');
+			tempCanvas.width = w;
+			tempCanvas.height = h;
+			var tempCtx = tempCanvas.getContext('2d');
+
+			var scale = 1;
+			if (w > 800 || h > 800)
+				scale = Math.min(800 / w, 800 / h);
+
+			var gw = Math.round(w * scale / PIXEL_RATIO);
+			var gh = Math.round(h * scale / PIXEL_RATIO);
+
+			var gifCanvas = document.createElement('canvas');
+			gifCanvas.width = gw;
+			gifCanvas.height = gh;
+			var gifCtx = gifCanvas.getContext('2d');
+
+			var frames = [];
+			var frameCount = Math.min(undoHistory.length, historyIndex + 1);
+
+			for (var i = 0; i < frameCount; i++)
+			{
+				gifCtx.fillStyle = 'rgb(' + BACKGROUND_COLOR[0] + ',' + BACKGROUND_COLOR[1] + ',' + BACKGROUND_COLOR[2] + ')';
+				gifCtx.fillRect(0, 0, gw, gh);
+
+				tempCtx.putImageData(undoHistory[i], 0, 0);
+				gifCtx.drawImage(tempCanvas, 0, 0, w, h, 0, 0, gw, gh);
+
+				frames.push(gifCtx.getImageData(0, 0, gw, gh));
+			}
+
+			var delay = Math.max(4, Math.round(300 / frameCount));
+			if (delay < 4) delay = 4;
+			var delays = [];
+			for (var i = 0; i < frames.length; i++)
+				delays.push(i === frames.length - 1 ? 200 : delay);
+			var gif = encodeGIF(frames, gw, gh, delays);
+
+			var blob = new Blob([gif], { type: 'image/gif' });
+			var url = URL.createObjectURL(blob);
+
+			var a = document.createElement('a');
+			a.href = url;
+			var d = new Date();
+			var dateStr = d.getFullYear().toString() +
+				(d.getMonth() + 1).toString().padStart(2, '0') +
+				d.getDate().toString().padStart(2, '0');
+			a.download = 'harmony_' + dateStr + '.gif';
+			a.click();
+
+			URL.revokeObjectURL(url);
+		}
+		catch(e)
+		{
+			alert('GIF export failed: ' + e.message);
+		}
+
+		menu.gif.innerHTML = originalText;
+		menu.gif.style.pointerEvents = '';
+	}, 50);
+}
+
+function onMenuGifFromRecording()
+{
+	var originalText = menu.gif.innerHTML;
+	menu.gif.innerHTML = 'Working...';
+	menu.gif.style.pointerEvents = 'none';
+
+	var framesToProcess = gifFrames.slice();
+	var delays = [];
+	for (var i = 0; i < framesToProcess.length; i++)
+		delays.push(i === framesToProcess.length - 1 ? 200 : Math.max(2, Math.round(framesToProcess[i].delay / 10)));
+
+	gifFrames = [];
+
+	var imageDataFrames = [];
+	var loaded = 0;
+	var tempCanvas = document.createElement('canvas');
+	tempCanvas.width = gifRecGw;
+	tempCanvas.height = gifRecGh;
+	var tempCtx = tempCanvas.getContext('2d');
+	tempCtx.imageSmoothingEnabled = false;
+
+	for (var i = 0; i < framesToProcess.length; i++)
+	{
+		(function(idx) {
+			var img = new Image();
+			img.onload = function()
+			{
+				tempCtx.clearRect(0, 0, gifRecGw, gifRecGh);
+				tempCtx.drawImage(img, 0, 0);
+				imageDataFrames[idx] = tempCtx.getImageData(0, 0, gifRecGw, gifRecGh);
+				loaded++;
+
+				if (loaded === framesToProcess.length)
+				{
+					try
+					{
+						var gif = encodeGIF(imageDataFrames, gifRecGw, gifRecGh, delays);
+
+						var blob = new Blob([gif], { type: 'image/gif' });
+						var url = URL.createObjectURL(blob);
+
+						var a = document.createElement('a');
+						a.href = url;
+						var d = new Date();
+						var dateStr = d.getFullYear().toString() +
+							(d.getMonth() + 1).toString().padStart(2, '0') +
+							d.getDate().toString().padStart(2, '0');
+						a.download = 'harmony_' + dateStr + '.gif';
+						a.click();
+
+						URL.revokeObjectURL(url);
+					}
+					catch(e)
+					{
+						alert('GIF export failed: ' + e.message);
+					}
+
+					menu.gif.innerHTML = originalText;
+					menu.gif.style.pointerEvents = '';
+				}
+			};
+			img.src = framesToProcess[idx].dataURL;
+		})(i);
+	}
+}
+
+// Minimal GIF89a encoder with median-cut color quantization
+
+function encodeGIF(frames, width, height, delays)
+{
+	var buf = [];
+
+	function writeByte(b) { buf.push(b & 0xFF); }
+	function writeShort(s) { buf.push(s & 0xFF); buf.push((s >> 8) & 0xFF); }
+	function writeBytes(arr) { for (var i = 0; i < arr.length; i++) buf.push(arr[i] & 0xFF); }
+	function writeString(s) { for (var i = 0; i < s.length; i++) buf.push(s.charCodeAt(i)); }
+
+	// Quantize: median-cut to 256 colors
+	function quantize(imageData)
+	{
+		var pixels = imageData.data;
+		var len = pixels.length / 4;
+
+		// Collect unique-ish colors by sampling
+		var sampleStep = Math.max(1, Math.floor(len / 50000));
+		var colorList = [];
+		for (var i = 0; i < len; i += sampleStep)
+		{
+			var off = i * 4;
+			colorList.push([pixels[off], pixels[off+1], pixels[off+2]]);
+		}
+
+		// Median cut
+		function medianCut(colors, depth)
+		{
+			if (depth === 0 || colors.length === 0)
+			{
+				// Pick the color closest to the centroid to preserve actual pixel colors
+				var r = 0, g = 0, b = 0;
+				for (var j = 0; j < colors.length; j++)
+				{
+					r += colors[j][0]; g += colors[j][1]; b += colors[j][2];
+				}
+				var n = colors.length || 1;
+				var cr = r / n, cg = g / n, cb = b / n;
+				var bestIdx = 0, bestDist = Infinity;
+				for (var j = 0; j < colors.length; j++)
+				{
+					var dr = colors[j][0] - cr, dg = colors[j][1] - cg, db = colors[j][2] - cb;
+					var d = dr*dr + dg*dg + db*db;
+					if (d < bestDist) { bestDist = d; bestIdx = j; }
+				}
+				return [colors[bestIdx] || [Math.round(cr), Math.round(cg), Math.round(cb)]];
+			}
+
+			// Find channel with greatest range
+			var minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+			for (var j = 0; j < colors.length; j++)
+			{
+				if(colors[j][0]<minR) minR=colors[j][0]; if(colors[j][0]>maxR) maxR=colors[j][0];
+				if(colors[j][1]<minG) minG=colors[j][1]; if(colors[j][1]>maxG) maxG=colors[j][1];
+				if(colors[j][2]<minB) minB=colors[j][2]; if(colors[j][2]>maxB) maxB=colors[j][2];
+			}
+			var rangeR = maxR-minR, rangeG = maxG-minG, rangeB = maxB-minB;
+			var ch = rangeR >= rangeG && rangeR >= rangeB ? 0 : (rangeG >= rangeB ? 1 : 2);
+
+			colors.sort(function(a,b) { return a[ch] - b[ch]; });
+			var mid = Math.floor(colors.length / 2);
+			return medianCut(colors.slice(0, mid), depth-1)
+				.concat(medianCut(colors.slice(mid), depth-1));
+		}
+
+		var palette = medianCut(colorList, 8); // 2^8 = 256 max
+
+		// Ensure exactly 256 entries
+		while (palette.length < 256)
+			palette.push(palette[palette.length - 1] || [0,0,0]);
+		palette = palette.slice(0, 256);
+
+		// Build indexed image - find nearest palette color for each pixel
+		var indexed = new Uint8Array(len);
+		// Build a simple cache for speed
+		var cache = {};
+		for (var i = 0; i < len; i++)
+		{
+			var off = i * 4;
+			var r = pixels[off], g = pixels[off+1], b = pixels[off+2];
+			var key = (r << 16) | (g << 8) | b;
+			if (cache[key] !== undefined)
+			{
+				indexed[i] = cache[key];
+			}
+			else
+			{
+				var bestDist = Infinity, bestIdx = 0;
+				for (var p = 0; p < 256; p++)
+				{
+					var dr = r - palette[p][0], dg = g - palette[p][1], db = b - palette[p][2];
+					var dist = dr*dr + dg*dg + db*db;
+					if (dist < bestDist) { bestDist = dist; bestIdx = p; }
+					if (dist === 0) break;
+				}
+				cache[key] = bestIdx;
+				indexed[i] = bestIdx;
+			}
+		}
+
+		return { palette: palette, indexed: indexed };
+	}
+
+	// LZW encoder for GIF
+	function lzwEncode(indexed, minCodeSize)
+	{
+		var clearCode = 1 << minCodeSize;
+		var eoiCode = clearCode + 1;
+		var codeSize = minCodeSize + 1;
+		var nextCode = eoiCode + 1;
+		var maxCode = (1 << codeSize);
+		var table = {};
+
+		var output = [];
+		var curByte = 0;
+		var curBit = 0;
+
+		function emit(code)
+		{
+			curByte |= (code << curBit);
+			curBit += codeSize;
+			while (curBit >= 8)
+			{
+				output.push(curByte & 0xFF);
+				curByte >>= 8;
+				curBit -= 8;
+			}
+		}
+
+		emit(clearCode);
+
+		// Init table
+		for (var i = 0; i < clearCode; i++)
+			table[i] = i;
+
+		var prev = indexed[0];
+		var tKey;
+
+		for (var i = 1; i < indexed.length; i++)
+		{
+			var cur = indexed[i];
+			tKey = prev + ',' + cur;
+
+			if (table[tKey] !== undefined)
+			{
+				prev = table[tKey];
+			}
+			else
+			{
+				emit(prev);
+				if (nextCode < 4096)
+				{
+					table[tKey] = nextCode++;
+					if (nextCode > maxCode && codeSize < 12)
+					{
+						codeSize++;
+						maxCode = 1 << codeSize;
+					}
+				}
+				else
+				{
+					emit(clearCode);
+					table = {};
+					for (var j = 0; j < clearCode; j++)
+						table[j] = j;
+					nextCode = eoiCode + 1;
+					codeSize = minCodeSize + 1;
+					maxCode = 1 << codeSize;
+				}
+				prev = cur;
+			}
+		}
+
+		emit(prev);
+		emit(eoiCode);
+
+		if (curBit > 0)
+			output.push(curByte & 0xFF);
+
+		return output;
+	}
+
+	// Sub-block the LZW data
+	function writeSubBlocks(data)
+	{
+		var idx = 0;
+		while (idx < data.length)
+		{
+			var chunkSize = Math.min(255, data.length - idx);
+			writeByte(chunkSize);
+			for (var i = 0; i < chunkSize; i++)
+				writeByte(data[idx++]);
+		}
+		writeByte(0); // block terminator
+	}
+
+	// --- GIF Header ---
+	writeString('GIF89a');
+	writeShort(width);
+	writeShort(height);
+
+	// Use global color table from first frame
+	var firstQ = quantize(frames[0]);
+	var globalPalette = firstQ.palette;
+
+	writeByte(0xF7); // GCT flag, 8 bits color resolution, 256 colors (2^(7+1))
+	writeByte(0);     // background color index
+	writeByte(0);     // pixel aspect ratio
+
+	// Global Color Table
+	for (var i = 0; i < 256; i++)
+	{
+		writeByte(globalPalette[i][0]);
+		writeByte(globalPalette[i][1]);
+		writeByte(globalPalette[i][2]);
+	}
+
+	// Netscape extension for looping
+	writeByte(0x21); // Extension
+	writeByte(0xFF); // Application Extension
+	writeByte(11);   // Block size
+	writeString('NETSCAPE2.0');
+	writeByte(3);    // Sub-block size
+	writeByte(1);    // Loop sub-block ID
+	writeShort(0);   // Loop count (0 = infinite)
+	writeByte(0);    // Block terminator
+
+	// --- Write each frame ---
+	for (var f = 0; f < frames.length; f++)
+	{
+		var q = (f === 0) ? firstQ : quantize(frames[f]);
+
+		// Graphic Control Extension
+		writeByte(0x21); // Extension
+		writeByte(0xF9); // Graphic Control
+		writeByte(4);    // Block size
+		writeByte(0);    // Disposal: none
+		writeShort(Array.isArray(delays) ? delays[f] : delays); // Delay in centiseconds
+		writeByte(0);    // Transparent color index (not used)
+		writeByte(0);    // Block terminator
+
+		// Image Descriptor
+		writeByte(0x2C);
+		writeShort(0);   // Left
+		writeShort(0);   // Top
+		writeShort(width);
+		writeShort(height);
+
+		if (f === 0)
+		{
+			writeByte(0); // No local color table, use global
+		}
+		else
+		{
+			writeByte(0x87); // Local color table, 256 entries
+			for (var i = 0; i < 256; i++)
+			{
+				writeByte(q.palette[i][0]);
+				writeByte(q.palette[i][1]);
+				writeByte(q.palette[i][2]);
+			}
+		}
+
+		// LZW Minimum Code Size
+		var minCodeSize = 8;
+		writeByte(minCodeSize);
+
+		var lzwData = lzwEncode(q.indexed, minCodeSize);
+		writeSubBlocks(lzwData);
+	}
+
+	// GIF Trailer
+	writeByte(0x3B);
+
+	return new Uint8Array(buf);
+}
+
 function onMenuUpload()
 {
 	var input = document.createElement('input');
@@ -2355,6 +3431,14 @@ function onMenuClear()
 	brush.destroy();
 	brush = eval("new " + BRUSHES[menu.selector.selectedIndex] + "(context)");
 	recreateSymmetryBrushes();
+
+	if (gifIsRecording)
+	{
+		gifFrames = [];
+		gifCaptureThrottle = 150;
+		gifLastCaptureTime = 0;
+		gifRecordFrame();
+	}
 }
 
 function onMenuAbout()
@@ -2400,6 +3484,8 @@ function onCanvasMouseDown( event )
 		symmetryBrushes[si].strokeStart( symPoints[si].x, symPoints[si].y );
 	}
 
+	if (gifIsRecording) gifRecordFrame();
+
 	window.addEventListener('mousemove', onCanvasMouseMove, { passive: false });
 	window.addEventListener('mouseup', onCanvasMouseUp, { passive: false });
 }
@@ -2416,6 +3502,8 @@ function onCanvasMouseMove( event )
 	{
 		symmetryBrushes[si].stroke( symPoints[si].x, symPoints[si].y );
 	}
+
+	gifMaybeCapture();
 }
 
 function onCanvasMouseUp()
@@ -2433,6 +3521,7 @@ function onCanvasMouseUp()
 	if (isDrawing)
 	{
 		isDrawing = false;
+		if (gifIsRecording) gifRecordFrame();
 		saveToHistory();
 	}
 
@@ -2471,6 +3560,7 @@ function onCanvasTouchStart( event )
 		{
 			brush.strokeEnd();
 			isDrawing = false;
+			if (gifIsRecording) gifRecordFrame();
 		}
 
 		window.addEventListener('touchmove', onCanvasTouchMove, { passive: false });
@@ -2499,6 +3589,8 @@ function onCanvasTouchStart( event )
 		{
 			symmetryBrushes[si].strokeStart( symPoints[si].x, symPoints[si].y );
 		}
+
+		if (gifIsRecording) gifRecordFrame();
 
 		window.addEventListener('touchmove', onCanvasTouchMove, { passive: false });
 		window.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
@@ -2555,6 +3647,8 @@ function onCanvasTouchMove( event )
 		{
 			symmetryBrushes[si].stroke( symPoints[si].x, symPoints[si].y );
 		}
+
+		gifMaybeCapture();
 	}
 }
 
@@ -2602,6 +3696,7 @@ function onCanvasTouchEnd( event )
 		window.removeEventListener('touchend', onCanvasTouchEnd, { passive: false });
 
 		isDrawing = false;
+		if (gifIsRecording) gifRecordFrame();
 		saveToHistory();
 	}
 }
@@ -2654,6 +3749,7 @@ function onMenuUndo()
 	historyIndex--;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	saveToLocalStorage();
+	if (gifIsRecording) gifRecordFrame();
 }
 
 function onMenuRedo()
@@ -2664,6 +3760,7 @@ function onMenuRedo()
 	historyIndex++;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	saveToLocalStorage();
+	if (gifIsRecording) gifRecordFrame();
 }
 
 function saveToLocalStorage()
