@@ -1,3 +1,10 @@
+* rev. 13 - 2026 02 24
+
+- Pressure sensitivity for all 8 new brushes: Neon, Watercolor, Splatter, Calligraphy, Smoke, Stipple, Lightning, Chalk
+- Pen tilt support (BRUSH_TILT_X/Y): Calligraphy nib angle and Smoke drift follow pen lean; Chalk grain aligns with tilt
+- Canvas input migrated to Pointer Events API (pointerdown / pointermove / pointerup)
+- Fixed color wheel getting stuck on mouse click
+
 * rev. 12 - 2026 02 22
 
 - Added 8 new brushes: Neon, Watercolor, Splatter, Calligraphy, Smoke, Stipple, Lightning, Chalk
