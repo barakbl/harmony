@@ -24,6 +24,7 @@
 				text-transform: uppercase;
 				font-size: 11px;
 				text-align: center;
+				touch-action: manipulation;
 			}
 
 			hr
@@ -2681,8 +2682,25 @@ function onWindowBlur( event )
 
 function onDocumentMouseDown( event )
 {
-	if (!isMenuMouseOver)
-		event.preventDefault();
+	// Allow native default behavior for interactive UI (selects, inputs, buttons,
+	// menu items, color pickers, about overlay). The previous logic relied on
+	// `isMenuMouseOver`, which is only set by mouseover/mouseout — these are
+	// unreliable on iOS touch, causing preventDefault to cancel the synthetic
+	// click that opens the native <select> picker, breaking brush/symmetry
+	// selection on iPhone.
+	var target = event.target;
+	if (target)
+	{
+		var tag = target.tagName;
+		if (tag === 'SELECT' || tag === 'OPTION' || tag === 'INPUT' ||
+			tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'LABEL')
+			return;
+		if (menu && menu.container && menu.container.contains(target)) return;
+		if (foregroundColorSelector && foregroundColorSelector.container.contains(target)) return;
+		if (backgroundColorSelector && backgroundColorSelector.container.contains(target)) return;
+		if (about && about.container && about.container.contains(target)) return;
+	}
+	event.preventDefault();
 }
 
 function onDocumentMouseOut( event )
