@@ -2202,7 +2202,7 @@ About.prototype =
 
 		text = document.createElement("p");
 		text.style.textAlign = 'center';
-		text.innerHTML = 'Forked version by <a href="https://github.com/barakbl/harmony" target="_blank"><strong>Barak Bloch</strong></a>';
+		text.innerHTML = 'FORKED VERSION BY <a href="https://github.com/barakbl/harmony" target="_blank"><strong>BARAK BLOCH</strong></a> ' + FORK_VERSION;
 		containerText.appendChild(text);
 
 		text = document.createElement("p");
@@ -2254,6 +2254,7 @@ About.prototype =
 // main.js
 
 const REV = 13;
+const FORK_VERSION = '0.1';
 const BRUSHES = ["sketchy", "shaded", "chrome", "fur", "longfur", "web", "", "simple", "squares", "ribbon", "", "circles", "grid", "eraser", "", "neon", "watercolor", "splatter", "calligraphy", "smoke", "stipple", "lightning", "chalk"];
 const NEW_BRUSHES = ["neon", "watercolor", "splatter", "calligraphy", "smoke", "stipple", "lightning", "chalk"];
 const USER_AGENT = navigator.userAgent.toLowerCase();
