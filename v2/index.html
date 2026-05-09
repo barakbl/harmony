@@ -5472,6 +5472,8 @@ Menu.prototype =
 		// Build Download / Upload as wide rows for the overflow panel
 		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
 		this.upload       = rowBtn(ICON.upload,   'Upload',        'Open SVG');
+		this.zoomReset    = rowBtn(ICON.zoom,     'Reset zoom',    'Reset zoom (b)');
+		this.clear        = rowBtn(ICON.trash,    'Clear canvas',  'Clear');
 		this.aboutBrushes = rowBtn(ICON.brush,    'About brushes', 'Brush guide');
 		this.about        = rowBtn(ICON.info,     'About',         'About Harmony');
 
@@ -5481,10 +5483,8 @@ Menu.prototype =
 		var gHist = group();
 		this.undo  = iconBtn(ICON.undo,  'Undo (Ctrl+Z)');
 		this.redo  = iconBtn(ICON.redo,  'Redo (Shift+Ctrl+Z)');
-		this.clear = iconBtn(ICON.trash, 'Clear');
 		gHist.appendChild(this.undo);
 		gHist.appendChild(this.redo);
-		gHist.appendChild(this.clear);
 		this.container.appendChild(gHist);
 
 		this.container.appendChild(divider());
@@ -5494,9 +5494,7 @@ Menu.prototype =
 		this.zoomIndicator = document.createElement("span");
 		this.zoomIndicator.className = 'zoom-pill';
 		this.zoomIndicator.textContent = '1.0×';
-		this.zoomReset = iconBtn(ICON.zoom, 'Reset zoom (b)');
 		gView.appendChild(this.zoomIndicator);
-		gView.appendChild(this.zoomReset);
 		this.container.appendChild(gView);
 
 		this.container.appendChild(divider());
@@ -5803,6 +5801,15 @@ Menu.prototype =
 		fileSection.appendChild(this.download);
 		fileSection.appendChild(this.upload);
 		panel.appendChild(fileSection);
+
+		// Section: View
+		var viewSection = document.createElement('div');
+		viewSection.className = 'overflow-section';
+		this.zoomReset.addEventListener('click', function() { scope.closeOverflow(); }, false);
+		this.clear.addEventListener('click',     function() { scope.closeOverflow(); }, false);
+		viewSection.appendChild(this.zoomReset);
+		viewSection.appendChild(this.clear);
+		panel.appendChild(viewSection);
 
 		// Section: Help
 		var helpSection = document.createElement('div');
