@@ -5472,20 +5472,12 @@ Menu.prototype =
 		// Build Download / Upload as wide rows for the overflow panel
 		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
 		this.upload       = rowBtn(ICON.upload,   'Upload',        'Open SVG');
+		this.undo         = rowBtn(ICON.undo,     'Undo',          'Undo (Ctrl+Z)');
+		this.redo         = rowBtn(ICON.redo,     'Redo',          'Redo (Shift+Ctrl+Z)');
 		this.zoomReset    = rowBtn(ICON.zoom,     'Reset zoom',    'Reset zoom (b)');
 		this.clear        = rowBtn(ICON.trash,    'Clear canvas',  'Clear');
 		this.aboutBrushes = rowBtn(ICON.brush,    'About brushes', 'Brush guide');
 		this.about        = rowBtn(ICON.info,     'About',         'About Harmony');
-
-		this.container.appendChild(divider());
-
-		// ─ Group: History ─
-		var gHist = group();
-		this.undo  = iconBtn(ICON.undo,  'Undo (Ctrl+Z)');
-		this.redo  = iconBtn(ICON.redo,  'Redo (Shift+Ctrl+Z)');
-		gHist.appendChild(this.undo);
-		gHist.appendChild(this.redo);
-		this.container.appendChild(gHist);
 
 		this.container.appendChild(divider());
 
@@ -5802,11 +5794,15 @@ Menu.prototype =
 		fileSection.appendChild(this.upload);
 		panel.appendChild(fileSection);
 
-		// Section: View
+		// Section: View / History
 		var viewSection = document.createElement('div');
 		viewSection.className = 'overflow-section';
+		this.undo.addEventListener('click',      function() { scope.closeOverflow(); }, false);
+		this.redo.addEventListener('click',      function() { scope.closeOverflow(); }, false);
 		this.zoomReset.addEventListener('click', function() { scope.closeOverflow(); }, false);
 		this.clear.addEventListener('click',     function() { scope.closeOverflow(); }, false);
+		viewSection.appendChild(this.undo);
+		viewSection.appendChild(this.redo);
 		viewSection.appendChild(this.zoomReset);
 		viewSection.appendChild(this.clear);
 		panel.appendChild(viewSection);
