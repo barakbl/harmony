@@ -467,13 +467,6 @@
 			.brush-picker .group-title-recent {
 				color: var(--accent);
 			}
-			.brush-picker .group-title-current {
-				color: var(--ink-soft);
-				font-weight: 600;
-				letter-spacing: 0.04em;
-				text-transform: none;
-				margin-left: 6px;
-			}
 			.brush-picker .group-title-recent::after {
 				content: '';
 				flex: 1;
@@ -536,6 +529,45 @@
 				max-width: 100%;
 			}
 			.brush-tile.selected .tile-name { color: var(--accent); }
+			.brush-tile .tile-gear {
+				position: absolute;
+				top: 4px;
+				left: 4px;
+				width: 18px;
+				height: 18px;
+				padding: 0;
+				appearance: none;
+				-webkit-appearance: none;
+				border: 1px solid var(--line);
+				background: rgba(255,255,255,0.92);
+				color: var(--ink-mute);
+				border-radius: 50%;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+				opacity: 0.55;
+				transition: opacity 140ms ease, color 140ms ease, background 140ms ease, transform 200ms ease;
+			}
+			.brush-tile .tile-gear svg { width: 10px; height: 10px; }
+			.brush-tile:hover .tile-gear,
+			.brush-tile.selected .tile-gear { opacity: 1; }
+			.brush-tile .tile-gear:hover {
+				background: var(--ink);
+				color: #fff;
+				border-color: var(--ink);
+				transform: rotate(45deg);
+			}
+			.theme-dark .brush-tile .tile-gear {
+				background: rgba(40,42,50,0.95);
+				border-color: rgba(255,255,255,0.14);
+				color: var(--ink-soft);
+			}
+			.theme-dark .brush-tile .tile-gear:hover {
+				background: var(--ink);
+				color: #16171a;
+				border-color: var(--ink);
+			}
 			.brush-tile.is-new::before {
 				content: 'NEW';
 				position: absolute;
@@ -548,6 +580,165 @@
 				padding: 2px 4px;
 				border-radius: 4px;
 				line-height: 1;
+			}
+
+			/* ─── Brush settings panel ────────────────────────────────── */
+			.brush-settings-panel {
+				position: fixed;
+				top: 88px;
+				right: 16px;
+				width: 280px;
+				background: rgba(255,255,255,0.97);
+				-webkit-backdrop-filter: blur(22px) saturate(180%);
+				backdrop-filter: blur(22px) saturate(180%);
+				border: 1px solid var(--line);
+				border-radius: 16px;
+				box-shadow: 0 18px 36px -10px rgba(20,22,28,0.32),
+				            0 4px 14px -4px rgba(20,22,28,0.16);
+				padding: 14px 16px 12px;
+				z-index: 1100;
+				font-family: var(--ui);
+				display: none;
+			}
+			.theme-dark .brush-settings-panel {
+				background: rgba(34,35,42,0.92) !important;
+				border-color: rgba(255,255,255,0.10);
+			}
+			.brush-settings-panel.open {
+				display: block;
+				animation: pickerIn 180ms ease-out both;
+			}
+			.bs-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				margin-bottom: 10px;
+			}
+			.bs-head-left {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-width: 0;
+				flex: 1;
+			}
+			.bs-glyph {
+				width: 26px;
+				height: 26px;
+				border-radius: 7px;
+				background: #fff;
+				box-shadow: inset 0 0 0 1px var(--line);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				flex: 0 0 26px;
+			}
+			.theme-dark .bs-glyph { background: rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10); }
+			.bs-glyph svg { width: 18px; height: 18px; }
+			.bs-title {
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.10em;
+				font-weight: 700;
+				color: var(--accent);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.bs-close {
+				appearance: none;
+				-webkit-appearance: none;
+				border: none;
+				background: transparent;
+				width: 24px;
+				height: 24px;
+				border-radius: 50%;
+				cursor: pointer;
+				color: var(--ink-mute);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				flex: 0 0 24px;
+				font-size: 16px;
+				line-height: 1;
+				font-family: var(--ui);
+			}
+			.bs-close:hover { background: rgba(20,22,28,0.06); color: var(--ink); }
+			.theme-dark .bs-close:hover { background: rgba(255,255,255,0.08); }
+			.bs-body { padding: 2px 0 4px; }
+			.bs-row { padding: 8px 0; }
+			.bs-row-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+				margin-bottom: 6px;
+			}
+			.bs-label {
+				font-size: 10px;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				font-weight: 600;
+				color: var(--ink-mute);
+			}
+			.bs-val {
+				font-family: var(--mono);
+				font-size: 11px;
+				color: var(--ink-soft);
+				font-variant-numeric: tabular-nums;
+				min-width: 38px;
+				text-align: right;
+			}
+			.brush-settings-panel input[type="range"] {
+				width: 100%;
+				margin: 0;
+				height: 4px;
+			}
+			.bs-foot {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-top: 10px;
+				padding-top: 10px;
+				border-top: 1px solid var(--line);
+				gap: 8px;
+			}
+			.bs-hint {
+				font-size: 10.5px;
+				color: var(--ink-mute);
+				line-height: 1.35;
+				font-style: italic;
+			}
+			.bs-reset {
+				appearance: none;
+				-webkit-appearance: none;
+				border: 1px solid var(--line);
+				background: transparent;
+				font-family: var(--ui);
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				color: var(--ink-soft);
+				padding: 6px 12px;
+				border-radius: 999px;
+				cursor: pointer;
+				white-space: nowrap;
+				transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+			}
+			.bs-reset:hover {
+				background: rgba(20,22,28,0.04);
+				color: var(--ink);
+				border-color: var(--line-strong);
+			}
+			.theme-dark .bs-reset:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); }
+
+			@media (max-width: 540px) {
+				.brush-settings-panel {
+					top: auto;
+					right: 8px;
+					left: 8px;
+					bottom: 12px;
+					width: auto;
+				}
 			}
 
 			/* ─── Overflow (More) menu ────────────────────────────────── */
@@ -963,6 +1154,27 @@
 				text-transform: uppercase;
 				color: var(--ink);
 				line-height: 1.2;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.brush-info-tunable {
+				font-size: 9.5px;
+				font-weight: 700;
+				letter-spacing: 0.10em;
+				text-transform: uppercase;
+				color: var(--ink-soft);
+				background: rgba(20,22,28,0.06);
+				border: 1px solid var(--line);
+				padding: 2px 7px;
+				border-radius: 999px;
+				line-height: 1;
+			}
+			.theme-dark .brush-info-tunable {
+				color: var(--ink-soft);
+				background: rgba(255,255,255,0.06);
+				border-color: rgba(255,255,255,0.10);
 			}
 			.brush-info-summary {
 				font-size: 13px;
@@ -1851,6 +2063,9 @@ sketchy.prototype =
 	stroke: function( mouseX, mouseY )
 	{
 		var i, dx, dy, d;
+		var radiusPx = brushSettingGet('sketchy', 'radius');
+		var radiusSq = radiusPx * radiusPx;
+		var falloff = radiusSq * 0.5 * brushSettingGet('sketchy', 'density');
 
 		this.points.push( [ mouseX, mouseY ] );
 
@@ -1868,7 +2083,7 @@ sketchy.prototype =
 			dy = this.points[i][1] - this.points[this.count][1];
 			d = dx * dx + dy * dy;
 
-			if (d < 4000 && Math.random() > (d / 2000))
+			if (d < radiusSq && Math.random() > (d / falloff))
 			{
 				this.context.beginPath();
 				this.context.moveTo( this.points[this.count][0] + (dx * 0.3), this.points[this.count][1] + (dy * 0.3));
@@ -1924,7 +2139,7 @@ squares.prototype =
 
 		dx = mouseX - this.prevMouseX;
 		dy = mouseY - this.prevMouseY;
-		angle = 1.57079633;
+		angle = brushSettingGet('squares', 'angle') * Math.PI / 180;
 		px = Math.cos(angle) * dx - Math.sin(angle) * dy;
 		py = Math.sin(angle) * dx + Math.cos(angle) * dy;
 
@@ -2108,11 +2323,12 @@ neon.prototype =
 		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
 		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
 		var pressureScale = 0.5 + BRUSH_PRESSURE * 0.5;
+		var glowSize = brushSettingGet('neon', 'glowSize');
 
 		this.context.lineCap = 'round';
 
 		// Outer glow
-		this.context.lineWidth = BRUSH_SIZE * 8 * pressureScale;
+		this.context.lineWidth = BRUSH_SIZE * 8 * pressureScale * glowSize;
 		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.02 * p ) + ")";
 		this.context.beginPath();
 		this.context.moveTo( this.prevMouseX, this.prevMouseY );
@@ -2120,7 +2336,7 @@ neon.prototype =
 		this.context.stroke();
 
 		// Mid glow
-		this.context.lineWidth = BRUSH_SIZE * 4 * pressureScale;
+		this.context.lineWidth = BRUSH_SIZE * 4 * pressureScale * glowSize;
 		this.context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + ( 0.05 * p ) + ")";
 		this.context.beginPath();
 		this.context.moveTo( this.prevMouseX, this.prevMouseY );
@@ -2249,8 +2465,10 @@ splatter.prototype =
 		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
 		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
 		var pressureScale = 0.5 + BRUSH_PRESSURE * 0.5;
-		var count  = Math.max( 1, Math.round( ( Math.floor( BRUSH_SIZE * 1.5 ) + 5 ) * pressureScale ) );
-		var radius = BRUSH_SIZE * 3 * pressureScale;
+		var countMul = brushSettingGet('splatter', 'count');
+		var spreadMul = brushSettingGet('splatter', 'spread');
+		var count  = Math.max( 1, Math.round( ( Math.floor( BRUSH_SIZE * 1.5 ) + 5 ) * pressureScale * countMul ) );
+		var radius = BRUSH_SIZE * 3 * pressureScale * spreadMul;
 		var i, angle, dist, x, y, dotSize;
 
 		for ( i = 0; i < count; i++ )
@@ -2305,9 +2523,9 @@ calligraphy.prototype =
 		var dy = mouseY - this.prevMouseY;
 		var angle = Math.atan2( dy, dx );
 
-		// Dynamic nib angle from pen tilt (falls back to 45° for mouse/touch)
+		// Dynamic nib angle from pen tilt (falls back to user-configured angle for mouse/touch)
 		var nibAngle = ( BRUSH_TILT_X === 0 && BRUSH_TILT_Y === 0 )
-			? Math.PI / 4
+			? brushSettingGet('calligraphy', 'nibAngle') * Math.PI / 180
 			: Math.atan2( BRUSH_TILT_Y, BRUSH_TILT_X );
 
 		// Width = perpendicular projection of nib relative to stroke direction, scaled by pressure
@@ -2966,16 +3184,20 @@ hatching.prototype =
 		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
 		var p = BRUSH_PRESSURE * BRUSH_OPACITY;
 
-		// Hatch direction follows pen tilt; otherwise default 45°
+		// Hatch direction follows pen tilt; otherwise the user-configured angle
 		var tiltMag = Math.sqrt( BRUSH_TILT_X * BRUSH_TILT_X + BRUSH_TILT_Y * BRUSH_TILT_Y );
 		var hatchAngle = ( tiltMag > 5 )
 			? Math.atan2( BRUSH_TILT_Y, BRUSH_TILT_X ) + Math.PI / 2
-			: Math.PI / 4;
+			: brushSettingGet( 'hatching', 'angle' ) * Math.PI / 180;
 		var hx = Math.cos( hatchAngle );
 		var hy = Math.sin( hatchAngle );
 
+		var densityMul = brushSettingGet( 'hatching', 'density' );
+		var lengthMul  = brushSettingGet( 'hatching', 'length' );
+		var jitterAmt  = brushSettingGet( 'hatching', 'jitter' );
+
 		var radius = BRUSH_SIZE * 2 * ( 0.7 + BRUSH_PRESSURE * 0.5 );
-		var lines = 2 + Math.floor( BRUSH_PRESSURE * 4 );
+		var lines = Math.max( 1, Math.round( ( 2 + BRUSH_PRESSURE * 4 ) * densityMul ) );
 
 		this.context.lineCap = 'round';
 		this.context.lineWidth = Math.max( 0.5, BRUSH_SIZE * 0.3 );
@@ -2984,11 +3206,11 @@ hatching.prototype =
 		for ( var i = 0; i < lines; i++ )
 		{
 			var t = ( i / lines - 0.5 ) * 2; // -1..1
-			var jitter = ( Math.random() - 0.5 ) * 0.4;
+			var jitter = ( Math.random() - 0.5 ) * jitterAmt;
 			var off = ( t + jitter ) * radius;
 			var px = -hy * off;
 			var py =  hx * off;
-			var hl = radius * ( 0.7 + Math.random() * 0.5 );
+			var hl = radius * ( 0.7 + Math.random() * 0.5 ) * lengthMul;
 			this.context.beginPath();
 			this.context.moveTo( mouseX + px - hx * hl, mouseY + py - hy * hl );
 			this.context.lineTo( mouseX + px + hx * hl, mouseY + py + hy * hl );
@@ -3066,7 +3288,7 @@ mycelium.prototype =
 				this.context.lineTo( this.points[i][0] - dx * 0.3, this.points[i][1] - dy * 0.3 );
 				this.context.stroke();
 
-				if ( Math.random() < 0.22 && this.points.length > 6 )
+				if ( Math.random() < brushSettingGet( 'mycelium', 'forkChance' ) && this.points.length > 6 )
 				{
 					mx = ( this.points[this.count][0] + this.points[i][0] ) * 0.5;
 					my = ( this.points[this.count][1] + this.points[i][1] ) * 0.5;
@@ -3150,7 +3372,7 @@ magnetic.prototype =
 				len = Math.sqrt( d );
 				nx = -dy / len;
 				ny = dx / len;
-				bulge = len * 0.35 * ( Math.random() < 0.5 ? -1 : 1 );
+				bulge = len * brushSettingGet( 'magnetic', 'bulge' ) * ( Math.random() < 0.5 ? -1 : 1 );
 				cx = mx + nx * bulge;
 				cy = my + ny * bulge;
 
@@ -3222,7 +3444,7 @@ constellation.prototype =
 
 		dists.sort( function( a, b ) { return a[0] - b[0]; } );
 
-		k = Math.min( 3, dists.length );
+		k = Math.min( brushSettingGet( 'constellation', 'links' ), dists.length );
 		this.context.lineWidth = 1;
 		this.context.strokeStyle = "rgba(" + COLOR[0] + "," + COLOR[1] + "," + COLOR[2] + "," + ( alpha * 0.18 ) + ")";
 
@@ -3275,7 +3497,7 @@ echo.prototype =
 	stroke: function( mouseX, mouseY )
 	{
 		var i, dx, dy, d, age, a, start;
-		var N = 24;
+		var N = brushSettingGet( 'echo', 'memory' );
 
 		this.points.push( [ mouseX, mouseY ] );
 
@@ -3376,7 +3598,7 @@ stringart.prototype =
 				dy = this.points[i][1] - mouseY;
 				d = dx * dx + dy * dy;
 
-				if ( d < 30000 && d > 200 && Math.random() < 0.07 )
+				if ( d < 30000 && d > 200 && Math.random() < brushSettingGet( 'stringart', 'density' ) )
 				{
 					this.context.beginPath();
 					this.context.moveTo( mouseX, mouseY );
@@ -3521,7 +3743,7 @@ delaunay.prototype =
 		}
 
 		candidates.sort( function( x, y ) { return x[0] - y[0]; } );
-		candidates = candidates.slice( 0, 5 );
+		candidates = candidates.slice( 0, brushSettingGet( 'delaunay', 'k' ) );
 		candidates.sort( function( x, y ) { return x[1] - y[1]; } );
 
 		this.context.lineWidth = 1;
@@ -3745,6 +3967,8 @@ crosshatch.prototype =
 	stroke: function( mouseX, mouseY )
 	{
 		var i, j, dx, dy, d, len, nx, ny, t, cx, cy, half;
+		var ticks = brushSettingGet( 'crosshatch', 'ticks' );
+		var lengthMul = brushSettingGet( 'crosshatch', 'tickLength' );
 
 		this.points.push( [ mouseX, mouseY ] );
 
@@ -3762,11 +3986,11 @@ crosshatch.prototype =
 				len = Math.sqrt( d );
 				nx = -dy / len;
 				ny = dx / len;
-				half = Math.min( BRUSH_SIZE * 0.8 + 1, 7 );
+				half = Math.min( BRUSH_SIZE * 0.8 + 1, 7 ) * lengthMul;
 
-				for ( j = 0; j < 3; j++ )
+				for ( j = 0; j < ticks; j++ )
 				{
-					t = 0.25 + j * 0.25;
+					t = ( ticks > 1 ) ? ( 0.25 + j * ( 0.5 / ( ticks - 1 ) ) ) : 0.5;
 					cx = mouseX + dx * t;
 					cy = mouseY + dy * t;
 					this.context.beginPath();
@@ -5126,6 +5350,12 @@ function _renderBrushesAbout(tabsRow, body, data)
 			var name = document.createElement('div');
 			name.className = 'brush-info-name';
 			name.textContent = b.name;
+			if (typeof brushHasSettings === 'function' && brushHasSettings(b.name)) {
+				var tunable = document.createElement('span');
+				tunable.className = 'brush-info-tunable';
+				tunable.textContent = 'tunable';
+				name.appendChild(tunable);
+			}
 			text.appendChild(name);
 
 			if (b.summary) {
@@ -5198,7 +5428,8 @@ var ICON = {
 	collapseL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/></svg>',
 	collapseR:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M5 6l6 6-6 6"/></svg>',
 	more:     '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>',
-	theme:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+	theme:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+	gear:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 };
 
 // ─── Brush glyphs (used in tiles & current-brush button) ────────────
@@ -5592,9 +5823,6 @@ Menu.prototype =
 		this.recentTitleLabel = document.createElement("span");
 		this.recentTitleLabel.textContent = 'Recent used';
 		this.recentTitle.appendChild(this.recentTitleLabel);
-		this.recentTitleCurrent = document.createElement("span");
-		this.recentTitleCurrent.className = 'group-title-current';
-		this.recentTitle.appendChild(this.recentTitleCurrent);
 		picker.appendChild(this.recentTitle);
 
 		this.recentGrid = document.createElement("div");
@@ -5648,20 +5876,30 @@ Menu.prototype =
 			e.preventDefault();
 			scope.selectBrush(name);
 		}, false);
+
+		if (brushHasSettings(name)) {
+			var gear = document.createElement('button');
+			gear.type = 'button';
+			gear.className = 'tile-gear';
+			gear.title = 'Settings';
+			gear.innerHTML = ICON.gear;
+			gear.addEventListener('click', function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				scope.selectBrush(name);
+				openBrushSettings(name);
+			}, false);
+			gear.addEventListener('pointerdown', function(e) { e.stopPropagation(); }, false);
+			tile.appendChild(gear);
+		}
+
 		return tile;
 	},
 
 	rebuildRecentBrushes: function()
 	{
 		if (!this.recentGrid) return;
-		var idx = this.selector ? this.selector.selectedIndex : -1;
-		var current = BRUSHES[idx];
-		if (this.recentTitleCurrent) {
-			this.recentTitleCurrent.textContent = current ? '(current ' + current.charAt(0).toUpperCase() + current.slice(1) + ')' : '';
-		}
-		var recent = recentBrushesGet()
-			.filter(function(n) { return n !== current; })
-			.slice(0, RECENT_BRUSHES_VISIBLE);
+		var recent = recentBrushesGet().slice(0, RECENT_BRUSHES_VISIBLE);
 		this.recentGrid.innerHTML = '';
 		if (recent.length === 0) {
 			this.recentTitle.style.display = 'none';
@@ -5686,6 +5924,9 @@ Menu.prototype =
 		this.rebuildRecentBrushes();
 		this.refreshBrushDisplay();
 		this.closeBrushPicker();
+		if (BRUSH_SETTINGS_PANEL_BRUSH && BRUSH_SETTINGS_PANEL_BRUSH !== name) {
+			closeBrushSettings();
+		}
 	},
 
 	refreshBrushDisplay: function()
@@ -6025,10 +6266,301 @@ const BRUSH_GROUPS = {
 	"Tools":       ["eraser"]
 };
 
+// Per-brush settings — defs + persisted store
+const BRUSH_SETTINGS_KEY = 'harmony-brush-settings';
+const BRUSH_SETTINGS_DEFS = {
+	sketchy: {
+		title: 'Sketchy',
+		params: [
+			{ key: 'radius',  label: 'Radius',  min: 30,  max: 120, step: 5,   default: 63,  suffix: 'px' },
+			{ key: 'density', label: 'Density', min: 0.3, max: 2.0, step: 0.1, default: 1.0, format: 'x' }
+		]
+	},
+	splatter: {
+		title: 'Splatter',
+		params: [
+			{ key: 'count',  label: 'Dot count', min: 0.3, max: 3.0, step: 0.1, default: 1.0, format: 'x' },
+			{ key: 'spread', label: 'Spread',    min: 0.5, max: 3.0, step: 0.1, default: 1.0, format: 'x' }
+		]
+	},
+	calligraphy: {
+		title: 'Calligraphy',
+		params: [
+			{ key: 'nibAngle', label: 'Nib angle', min: 0, max: 180, step: 5, default: 45, suffix: '°' }
+		]
+	},
+	neon: {
+		title: 'Neon',
+		params: [
+			{ key: 'glowSize', label: 'Glow size', min: 0.4, max: 2.5, step: 0.1, default: 1.0, format: 'x' }
+		]
+	},
+	squares: {
+		title: 'Squares',
+		params: [
+			{ key: 'angle', label: 'Angle', min: 0, max: 180, step: 5, default: 90, suffix: '°' }
+		]
+	},
+	hatching: {
+		title: 'Hatching',
+		params: [
+			{ key: 'angle',   label: 'Angle',   min: 0,   max: 180, step: 5,    default: 45,  suffix: '°' },
+			{ key: 'density', label: 'Density', min: 0.5, max: 3.0, step: 0.1,  default: 1.0, format: 'x' },
+			{ key: 'length',  label: 'Length',  min: 0.5, max: 2.0, step: 0.1,  default: 1.0, format: 'x' },
+			{ key: 'jitter',  label: 'Jitter',  min: 0,   max: 1.0, step: 0.05, default: 0.4, format: 'x' }
+		]
+	},
+	crosshatch: {
+		title: 'Crosshatch',
+		params: [
+			{ key: 'ticks',      label: 'Ticks per line', min: 1,   max: 6,   step: 1,   default: 3 },
+			{ key: 'tickLength', label: 'Tick length',    min: 0.5, max: 2.5, step: 0.1, default: 1, format: 'x' }
+		]
+	},
+	mycelium: {
+		title: 'Mycelium',
+		params: [
+			{ key: 'forkChance', label: 'Fork chance', min: 0, max: 0.6, step: 0.02, default: 0.22, format: 'percent' }
+		]
+	},
+	magnetic: {
+		title: 'Magnetic',
+		params: [
+			{ key: 'bulge', label: 'Bulge', min: 0, max: 0.9, step: 0.05, default: 0.35, format: 'x' }
+		]
+	},
+	constellation: {
+		title: 'Constellation',
+		params: [
+			{ key: 'links', label: 'Links per point', min: 1, max: 6, step: 1, default: 3 }
+		]
+	},
+	echo: {
+		title: 'Echo',
+		params: [
+			{ key: 'memory', label: 'Memory', min: 8, max: 60, step: 1, default: 24, suffix: ' pts' }
+		]
+	},
+	stringart: {
+		title: 'String Art',
+		params: [
+			{ key: 'density', label: 'Density', min: 0.02, max: 0.25, step: 0.01, default: 0.07, format: 'percent' }
+		]
+	},
+	delaunay: {
+		title: 'Delaunay',
+		params: [
+			{ key: 'k', label: 'Neighbours', min: 3, max: 8, step: 1, default: 5 }
+		]
+	}
+};
+
+var BRUSH_SETTINGS = {};
+
+function brushSettingsLoad()
+{
+	try {
+		var raw = localStorage.getItem(BRUSH_SETTINGS_KEY);
+		BRUSH_SETTINGS = raw ? (JSON.parse(raw) || {}) : {};
+	} catch (e) { BRUSH_SETTINGS = {}; }
+}
+
+function brushSettingsSave()
+{
+	try { localStorage.setItem(BRUSH_SETTINGS_KEY, JSON.stringify(BRUSH_SETTINGS)); } catch (e) {}
+}
+
+function brushSettingDef(brush, key)
+{
+	var def = BRUSH_SETTINGS_DEFS[brush];
+	if (!def) return null;
+	for (var i = 0; i < def.params.length; i++) {
+		if (def.params[i].key === key) return def.params[i];
+	}
+	return null;
+}
+
+function brushSettingGet(brush, key)
+{
+	var p = brushSettingDef(brush, key);
+	if (!p) return undefined;
+	var stored = BRUSH_SETTINGS[brush];
+	if (stored && stored[key] !== undefined && stored[key] !== null) return stored[key];
+	return p.default;
+}
+
+function brushSettingSet(brush, key, val)
+{
+	if (!BRUSH_SETTINGS[brush]) BRUSH_SETTINGS[brush] = {};
+	BRUSH_SETTINGS[brush][key] = val;
+	brushSettingsSave();
+}
+
+function brushSettingsReset(brush)
+{
+	if (BRUSH_SETTINGS[brush]) {
+		delete BRUSH_SETTINGS[brush];
+		brushSettingsSave();
+	}
+}
+
+function brushHasSettings(name)
+{
+	return !!BRUSH_SETTINGS_DEFS[name];
+}
+
+brushSettingsLoad();
+
+// ─── Brush settings popover ─────────────────────────────────────────
+var BRUSH_SETTINGS_PANEL_EL = null;
+var BRUSH_SETTINGS_PANEL_BRUSH = null;
+
+function _bsFormatValue(param, value)
+{
+	if (param.format === 'percent') return Math.round(value * 100) + '%';
+	if (param.format === 'x') return (Math.round(value * 100) / 100).toFixed(2) + '×';
+	if (param.suffix) {
+		var s = (param.step < 1) ? value.toFixed(2) : Math.round(value).toString();
+		return s + param.suffix;
+	}
+	return (param.step < 1) ? value.toFixed(2) : Math.round(value).toString();
+}
+
+function _bsKeyHandler(e)
+{
+	if (e.key === 'Escape' && BRUSH_SETTINGS_PANEL_EL) {
+		e.preventDefault();
+		closeBrushSettings();
+	}
+}
+
+function closeBrushSettings()
+{
+	if (!BRUSH_SETTINGS_PANEL_EL) return;
+	var el = BRUSH_SETTINGS_PANEL_EL;
+	BRUSH_SETTINGS_PANEL_EL = null;
+	BRUSH_SETTINGS_PANEL_BRUSH = null;
+	document.removeEventListener('keydown', _bsKeyHandler, true);
+	if (el.parentNode) el.parentNode.removeChild(el);
+}
+
+function openBrushSettings(brushName)
+{
+	var def = BRUSH_SETTINGS_DEFS[brushName];
+	if (!def) return;
+
+	closeBrushSettings();
+
+	var panel = document.createElement('div');
+	panel.className = 'brush-settings-panel';
+	panel.addEventListener('mousedown', function(e) { e.stopPropagation(); }, false);
+	panel.addEventListener('pointerdown', function(e) { e.stopPropagation(); }, false);
+
+	// Head
+	var head = document.createElement('div');
+	head.className = 'bs-head';
+	var headLeft = document.createElement('div');
+	headLeft.className = 'bs-head-left';
+	var glyph = document.createElement('span');
+	glyph.className = 'bs-glyph';
+	glyph.innerHTML = brushIconSvg(brushName);
+	var title = document.createElement('span');
+	title.className = 'bs-title';
+	title.textContent = (def.title || brushName) + ' Settings';
+	headLeft.appendChild(glyph);
+	headLeft.appendChild(title);
+	var closeBtn = document.createElement('button');
+	closeBtn.type = 'button';
+	closeBtn.className = 'bs-close';
+	closeBtn.title = 'Close';
+	closeBtn.innerHTML = '&times;';
+	closeBtn.addEventListener('click', function(e) {
+		e.preventDefault();
+		closeBrushSettings();
+	}, false);
+	head.appendChild(headLeft);
+	head.appendChild(closeBtn);
+	panel.appendChild(head);
+
+	// Body — one row per param
+	var body = document.createElement('div');
+	body.className = 'bs-body';
+
+	var rowEls = []; // [{param, slider, valEl}]
+
+	for (var i = 0; i < def.params.length; i++) {
+		(function(param) {
+			var row = document.createElement('div');
+			row.className = 'bs-row';
+
+			var rowHead = document.createElement('div');
+			rowHead.className = 'bs-row-head';
+			var lbl = document.createElement('span');
+			lbl.className = 'bs-label';
+			lbl.textContent = param.label;
+			var val = document.createElement('span');
+			val.className = 'bs-val';
+			rowHead.appendChild(lbl);
+			rowHead.appendChild(val);
+			row.appendChild(rowHead);
+
+			var slider = document.createElement('input');
+			slider.type = 'range';
+			slider.min = String(param.min);
+			slider.max = String(param.max);
+			slider.step = String(param.step);
+			var current = brushSettingGet(brushName, param.key);
+			slider.value = String(current);
+			val.textContent = _bsFormatValue(param, current);
+
+			slider.addEventListener('input', function() {
+				var v = parseFloat(slider.value);
+				brushSettingSet(brushName, param.key, v);
+				val.textContent = _bsFormatValue(param, v);
+			}, false);
+
+			row.appendChild(slider);
+			body.appendChild(row);
+			rowEls.push({ param: param, slider: slider, valEl: val });
+		})(def.params[i]);
+	}
+	panel.appendChild(body);
+
+	// Footer
+	var foot = document.createElement('div');
+	foot.className = 'bs-foot';
+	var hint = document.createElement('span');
+	hint.className = 'bs-hint';
+	hint.textContent = 'Try the brush — changes apply live.';
+	var reset = document.createElement('button');
+	reset.type = 'button';
+	reset.className = 'bs-reset';
+	reset.textContent = 'Reset';
+	reset.addEventListener('click', function(e) {
+		e.preventDefault();
+		brushSettingsReset(brushName);
+		for (var k = 0; k < rowEls.length; k++) {
+			var r = rowEls[k];
+			r.slider.value = String(r.param.default);
+			r.valEl.textContent = _bsFormatValue(r.param, r.param.default);
+		}
+	}, false);
+	foot.appendChild(hint);
+	foot.appendChild(reset);
+	panel.appendChild(foot);
+
+	document.body.appendChild(panel);
+	requestAnimationFrame(function() { panel.classList.add('open'); });
+
+	BRUSH_SETTINGS_PANEL_EL = panel;
+	BRUSH_SETTINGS_PANEL_BRUSH = brushName;
+	document.addEventListener('keydown', _bsKeyHandler, true);
+}
+
 // Recently used brushes — persisted stack (most-recent first)
 const RECENT_BRUSHES_KEY = 'harmony-recent-brushes';
-const RECENT_BRUSHES_MAX = 5;
-const RECENT_BRUSHES_VISIBLE = 4;
+const RECENT_BRUSHES_MAX = 6;
+const RECENT_BRUSHES_VISIBLE = 6;
 
 function recentBrushesGet()
 {
