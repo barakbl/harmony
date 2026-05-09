@@ -75,6 +75,17 @@
 			]
 		},
 		{
+			"key": "Summer",
+			"title": "Summer",
+			"description": "Warm-weather brushes built on the neighbour-line idea — the rule fires only sometimes, so strokes leave bursts, blooms or fireflies along their path.",
+			"brushes": [
+				{ "name": "sunburst", "summary": "Periodic flare points emit short radial rays; a faint trail connects them.", "goodFor": "A sun-piercing-leaves sensation — bright rhythmic bursts along a sketched path." },
+				{ "name": "tide",     "summary": "Neighbour-line connections drawn as sine-wave curves with adjustable frequency and amplitude.", "goodFor": "A lapping-shoreline feel — wavy strokes that ride along the gesture." },
+				{ "name": "firefly",  "summary": "Sparse glowing dots fire every Nth point with a soft halo, plus faint links to nearest past lights.", "goodFor": "A twilight-backyard sensation — minimal, luminous sketches of light points." },
+				{ "name": "bloom",    "summary": "Periodic petal-stamps with a centre dot, plus thread-thin trails between recent blooms.", "goodFor": "A meadow-flowers feel — sparse, joyful sketches with rhythmic stamps." }
+			]
+		},
+		{
 			"key": "Studio",
 			"title": "Studio",
 			"description": "Polished modern brushes built for everyday illustration — texture and feel rather than emergent structure.",
