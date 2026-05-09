@@ -1,0 +1,98 @@
+{
+	"sets": [
+		{
+			"key": "Classic",
+			"title": "Classic",
+			"description": "The original Mr.doob neighbour-line family from The Scribbler. Each brush buffers stroke points and draws faint connecting lines, so dense areas naturally fill in and shapes emerge from motion.",
+			"brushes": [
+				{ "name": "sketchy",  "summary": "Faint diagonals link each new point to nearby past ones, with mid-segment cuts so the web stays airy.", "goodFor": "Loose figure sketches and gestural studies — tone builds up gradually as you explore a shape." },
+				{ "name": "shaded",   "summary": "Wide soft band stroke that builds value with overlapping passes.", "goodFor": "Suggesting volume and mood in a sketch with broad, atmospheric passes." },
+				{ "name": "chrome",   "summary": "Reflected offset lines along the stroke create a polished metallic ribbon.", "goodFor": "Decorative flourishes and ribbon-like accents within a sketch." },
+				{ "name": "fur",      "summary": "Short upward bristles stamped along the stroke.", "goodFor": "A fluffy or feathered edge along the contour of a quick sketch." },
+				{ "name": "longfur",  "summary": "Long vertical hairs trailing from the stroke.", "goodFor": "A wispy, falling-hair sensation following a drawn line." },
+				{ "name": "web",      "summary": "All-pairs connection at low alpha — denser, more web-like than Sketchy.", "goodFor": "A dense, cobweb-like texture for moody or stylised sketches." }
+			]
+		},
+		{
+			"key": "Geometric",
+			"title": "Geometric",
+			"description": "Hard-edged primitives that paint shapes rather than tones. Useful as building blocks when a sketch needs structure or rhythm.",
+			"brushes": [
+				{ "name": "simple",  "summary": "A plain solid line — the calibrator brush.", "goodFor": "Clean reference marks where the other brushes feel too expressive." },
+				{ "name": "squares", "summary": "Stamps a rotated rectangle along motion direction.", "goodFor": "A blocky, architectural feel — quick mass studies and glitch-style motifs." },
+				{ "name": "ribbon",  "summary": "Twisting wave stroke that loops around the cursor.", "goodFor": "A sense of motion or banner-like flourish in a sketch." },
+				{ "name": "circles", "summary": "Concentric rings stamped at the cursor.", "goodFor": "A halo, ripple, or target feel around a focal point of the drawing." },
+				{ "name": "grid",    "summary": "Lays down grid intersections under the cursor.", "goodFor": "Light technical fills or layout reference beneath a sketch." }
+			]
+		},
+		{
+			"key": "Atmospheric",
+			"title": "Atmospheric",
+			"description": "Painterly and effects-driven brushes that don't follow the neighbour-line idea — they paint texture directly to set a mood.",
+			"brushes": [
+				{ "name": "neon",        "summary": "Soft blurred glow stacked under a hard core line — the classic glow tube.", "goodFor": "A neon-glow vibe — magical or signage-like accents, especially on a dark canvas." },
+				{ "name": "watercolor",  "summary": "Wet bleed with soft-edged dabs that mix with the canvas.", "goodFor": "A loose, washy feel for organic backgrounds and expressive ink studies." },
+				{ "name": "splatter",    "summary": "Random ink dots scattered around the cursor.", "goodFor": "Speckle and grit overlaid on a sketch for a distressed sensation." },
+				{ "name": "calligraphy", "summary": "Pen-nib width modulated by stroke direction.", "goodFor": "A nibbed, calligraphic feel — stylised lettering or comic-ink sketching." },
+				{ "name": "smoke",       "summary": "Stacked translucent ovals that drift and dissipate.", "goodFor": "A soft, smoky atmosphere drifting through a sketch." },
+				{ "name": "stipple",     "summary": "Hand-placed dots, dense at the cursor and sparse around it.", "goodFor": "A stippled, pointillist sensation — like a quick etching study." },
+				{ "name": "lightning",   "summary": "Jagged forking line with random displacement.", "goodFor": "An electric, energetic mark — arcs or cracks in a sketch." },
+				{ "name": "chalk",       "summary": "Granular dry-brush texture with scattered particles.", "goodFor": "A chalky, weathered surface feel — like sketching on a blackboard." }
+			]
+		},
+		{
+			"key": "Exotic",
+			"title": "Exotic",
+			"description": "Riffs on the Mr.doob neighbour-line mechanic, each twisting one parameter to produce a distinct emergent texture.",
+			"brushes": [
+				{ "name": "mycelium",      "summary": "Sketchy-style connections that occasionally fork to a third nearby point.", "goodFor": "An organic, branching sensation — root systems or fungal-network studies." },
+				{ "name": "magnetic",      "summary": "Neighbour links rendered as bulging quadratic Bezier arcs.", "goodFor": "A curling, field-line feel — sketches that suggest magnetism or flow." },
+				{ "name": "constellation", "summary": "Bright dot at the cursor connected to the 3 nearest past points.", "goodFor": "A star-map sensation — minimal, dotted sketches with linking filaments." },
+				{ "name": "echo",          "summary": "Sketchy with a sliding window of the last 24 points and age-based fade.", "goodFor": "A motion-aware sketch where trails fade behind the cursor." },
+				{ "name": "stringart",     "summary": "Connects only to past points opposite the cursor across a moving centroid.", "goodFor": "A nail-and-thread, math-art feel — geometric envelopes built up from gesture." }
+			]
+		},
+		{
+			"key": "Math",
+			"title": "Math",
+			"description": "Brushes drawn from computational geometry. The result is a structure derived from your stroke rather than a stylised line.",
+			"brushes": [
+				{ "name": "voronoi",  "summary": "Draws the perpendicular bisector between the cursor and its nearest past point.", "goodFor": "A cellular-partition sensation — biological or diagrammatic sketches." },
+				{ "name": "delaunay", "summary": "Angle-sorted spokes plus a ring among the 5 nearest neighbours.", "goodFor": "A low-poly, triangular-mesh feel for structural sketches." },
+				{ "name": "hull",     "summary": "Periodically strokes the convex hull of recent stroke points.", "goodFor": "Wrapping a sketch in a tightening envelope — gesture and motion studies." },
+				{ "name": "tangent",  "summary": "Each connection becomes a perpendicular tick at its midpoint.", "goodFor": "A bristled, force-line sensation — sketches that suggest direction or tension." }
+			]
+		},
+		{
+			"key": "Inked",
+			"title": "Inked",
+			"description": "Illustrative variations on the neighbour-line idea that produce traditional drawing textures — hatched, blotted, woven.",
+			"brushes": [
+				{ "name": "crosshatch", "summary": "Each connection is replaced by 3 perpendicular ticks along it.", "goodFor": "An engraving or etching sensation — classical hatched shading over a sketch." },
+				{ "name": "knit",       "summary": "Connects to the past point most perpendicular to the cursor's velocity.", "goodFor": "A braided, woven feel — sketches that suggest knit or knotted forms." },
+				{ "name": "inkblot",    "summary": "Density-scaled ink pools at midpoints of neighbour-lines.", "goodFor": "A wet, blotchy ink sensation — organic stain studies." },
+				{ "name": "halo",       "summary": "Circle at each point with radius equal to its nearest-neighbour distance.", "goodFor": "A cell-packing or halo feel — sketches of how points relate spatially." }
+			]
+		},
+		{
+			"key": "Studio",
+			"title": "Studio",
+			"description": "Polished modern brushes built for everyday illustration — texture and feel rather than emergent structure.",
+			"brushes": [
+				{ "name": "pixel",   "summary": "Snaps to a coarse pixel grid for retro pixel-art looks.", "goodFor": "A pixelated, lo-fi sensation in a sketch — like roughing in over a coarse grid." },
+				{ "name": "oil",     "summary": "Thick wet-edge brush with smearing transparency.", "goodFor": "A painterly, oil-like feel for broad, expressive strokes." },
+				{ "name": "crayon",  "summary": "Waxy layered marks with grainy edges.", "goodFor": "A waxy, crayon-on-paper feel — playful, textured colour sketches." },
+				{ "name": "sparkle", "summary": "Stars and tiny twinkles scattered around the cursor.", "goodFor": "A magical-dust sensation — decorative twinkles to lift a sketch." },
+				{ "name": "hatching","summary": "Diagonal hatching lines laid down beneath every stroke.", "goodFor": "A quick hatched-shading pass over an existing sketch." }
+			]
+		},
+		{
+			"key": "Tools",
+			"title": "Tools",
+			"description": "Utilities — not brushes in the painting sense.",
+			"brushes": [
+				{ "name": "eraser", "summary": "Removes ink from the canvas.", "goodFor": "Cleaning up or masking parts of a sketch." }
+			]
+		}
+	]
+}
