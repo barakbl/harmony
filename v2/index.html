@@ -6860,6 +6860,8 @@ function init()
 		brush = eval("new " + BRUSHES[0] + "(context)");
 	}
 
+	menu.refreshBrushDisplay();
+
 	about = new About();
 	container.appendChild(about.container);
 
