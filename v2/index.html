@@ -2579,10 +2579,15 @@ smoke.prototype =
 	{
 		var r = COLOR[0], g = COLOR[1], b = COLOR[2];
 		var i, p;
+		var densityMul = brushSettingGet( 'smoke', 'density' );
+		var riseMul    = brushSettingGet( 'smoke', 'rise' );
+		var lifespan   = brushSettingGet( 'smoke', 'lifespan' );
+		var turbMul    = brushSettingGet( 'smoke', 'turbulence' );
+		var fadeRate   = 1 - 0.03 / lifespan;
 
 		if ( this.isDrawing )
 		{
-			var particleCount = Math.round( 1 + BRUSH_PRESSURE * 5 );
+			var particleCount = Math.max( 1, Math.round( ( 1 + BRUSH_PRESSURE * 5 ) * densityMul ) );
 			var tiltDriftX    = ( BRUSH_TILT_X / 90 ) * 1.5;
 			var tiltDriftY    = ( BRUSH_TILT_Y / 90 ) * 1.5;
 
@@ -2592,7 +2597,7 @@ smoke.prototype =
 					x: this.mouseX + ( Math.random() - 0.5 ) * BRUSH_SIZE,
 					y: this.mouseY + ( Math.random() - 0.5 ) * BRUSH_SIZE,
 					vx: ( Math.random() - 0.5 ) * 0.5 + tiltDriftX,
-					vy: -( Math.random() * 1.5 + 0.5 ) + tiltDriftY,
+					vy: -( Math.random() * 1.5 + 0.5 ) * riseMul + tiltDriftY,
 					radius: Math.random() * BRUSH_SIZE * 0.5 + BRUSH_SIZE * 0.2,
 					alpha: Math.random() * 0.3 * BRUSH_PRESSURE * BRUSH_OPACITY
 				});
@@ -2604,9 +2609,9 @@ smoke.prototype =
 			p = this.particles[ i ];
 			p.x += p.vx;
 			p.y += p.vy;
-			p.vx += ( Math.random() - 0.5 ) * 0.2;
+			p.vx += ( Math.random() - 0.5 ) * 0.2 * turbMul;
 			p.radius *= 1.01;
-			p.alpha *= 0.97;
+			p.alpha *= fadeRate;
 
 			if ( p.alpha < 0.002 )
 			{
@@ -6308,6 +6313,15 @@ const BRUSH_SETTINGS_DEFS = {
 			{ key: 'density', label: 'Density', min: 0.5, max: 3.0, step: 0.1,  default: 1.0, format: 'x' },
 			{ key: 'length',  label: 'Length',  min: 0.5, max: 2.0, step: 0.1,  default: 1.0, format: 'x' },
 			{ key: 'jitter',  label: 'Jitter',  min: 0,   max: 1.0, step: 0.05, default: 0.4, format: 'x' }
+		]
+	},
+	smoke: {
+		title: 'Smoke',
+		params: [
+			{ key: 'density',    label: 'Density',    min: 0.3, max: 3.0, step: 0.1, default: 1.0, format: 'x' },
+			{ key: 'rise',       label: 'Rise speed', min: 0,   max: 3.0, step: 0.1, default: 1.0, format: 'x' },
+			{ key: 'lifespan',   label: 'Lifespan',   min: 0.5, max: 3.0, step: 0.1, default: 1.0, format: 'x' },
+			{ key: 'turbulence', label: 'Turbulence', min: 0,   max: 3.0, step: 0.1, default: 1.0, format: 'x' }
 		]
 	},
 	crosshatch: {
