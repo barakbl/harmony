@@ -165,8 +165,10 @@
 			.btn:hover { background: rgba(20,22,28,0.06); color: var(--ink); }
 			.btn:active { transform: scale(0.94); background: rgba(20,22,28,0.10); }
 			.btn.is-active { color: var(--accent); background: var(--accent-soft); }
-			.btn.rec-active { color: var(--accent); background: var(--accent-soft); }
-			.btn.rec-active::after {
+			.btn.rec-active,
+			.overflow-row.rec-active { color: var(--accent); background: var(--accent-soft); }
+			.btn.rec-active::after,
+			.overflow-row.rec-active::after {
 				content: '';
 				position: absolute;
 				top: 6px; right: 6px;
@@ -5459,25 +5461,31 @@ Menu.prototype =
 
 		this.container.appendChild(divider());
 
-		// ─ Group: Files (Save / Rec / GIF live on the toolbar; Download / Upload move to the More menu) ─
+		// ─ Group: Files (Save lives on the toolbar; Record / Export GIF move to the More menu) ─
 		var gFiles = group();
 		this.save     = iconBtn(ICON.save,     'Save');
-		this.rec      = iconBtn(ICON.rec,      'Record');
-		this.gif      = iconBtn(ICON.gif,      'Export GIF');
 		gFiles.appendChild(this.save);
-		gFiles.appendChild(this.rec);
-		gFiles.appendChild(this.gif);
 		this.container.appendChild(gFiles);
 
-		// Build Download / Upload as wide rows for the overflow panel
+		// Build wide rows for the overflow panel
 		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
 		this.upload       = rowBtn(ICON.upload,   'Upload',        'Open SVG');
-		this.undo         = rowBtn(ICON.undo,     'Undo',          'Undo (Ctrl+Z)');
-		this.redo         = rowBtn(ICON.redo,     'Redo',          'Redo (Shift+Ctrl+Z)');
+		this.rec          = rowBtn(ICON.rec,      'Record',        'Record');
+		this.gif          = rowBtn(ICON.gif,      'Export GIF',    'Export GIF');
 		this.zoomReset    = rowBtn(ICON.zoom,     'Reset zoom',    'Reset zoom (b)');
 		this.clear        = rowBtn(ICON.trash,    'Clear canvas',  'Clear');
 		this.aboutBrushes = rowBtn(ICON.brush,    'About brushes', 'Brush guide');
 		this.about        = rowBtn(ICON.info,     'About',         'About Harmony');
+
+		this.container.appendChild(divider());
+
+		// ─ Group: History ─
+		var gHist = group();
+		this.undo = iconBtn(ICON.undo, 'Undo (Ctrl+Z)');
+		this.redo = iconBtn(ICON.redo, 'Redo (Shift+Ctrl+Z)');
+		gHist.appendChild(this.undo);
+		gHist.appendChild(this.redo);
+		this.container.appendChild(gHist);
 
 		this.container.appendChild(divider());
 
@@ -5794,15 +5802,15 @@ Menu.prototype =
 		fileSection.appendChild(this.upload);
 		panel.appendChild(fileSection);
 
-		// Section: View / History
+		// Section: View
 		var viewSection = document.createElement('div');
 		viewSection.className = 'overflow-section';
-		this.undo.addEventListener('click',      function() { scope.closeOverflow(); }, false);
-		this.redo.addEventListener('click',      function() { scope.closeOverflow(); }, false);
+		this.rec.addEventListener('click',       function() { scope.closeOverflow(); }, false);
+		this.gif.addEventListener('click',       function() { scope.closeOverflow(); }, false);
 		this.zoomReset.addEventListener('click', function() { scope.closeOverflow(); }, false);
 		this.clear.addEventListener('click',     function() { scope.closeOverflow(); }, false);
-		viewSection.appendChild(this.undo);
-		viewSection.appendChild(this.redo);
+		viewSection.appendChild(this.rec);
+		viewSection.appendChild(this.gif);
 		viewSection.appendChild(this.zoomReset);
 		viewSection.appendChild(this.clear);
 		panel.appendChild(viewSection);
