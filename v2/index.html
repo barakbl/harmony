@@ -604,6 +604,9 @@
 			}
 			.overflow-row:hover { background: rgba(20,22,28,0.06); }
 			.overflow-row:active { background: rgba(20,22,28,0.10); }
+			.overflow-row-danger { color: var(--accent); }
+			.overflow-row-danger .ovr-icon { color: var(--accent); background: var(--accent-soft); }
+			.overflow-row-danger:hover { background: var(--accent-soft); }
 			.overflow-row .ovr-icon {
 				width: 30px;
 				height: 30px;
@@ -5738,6 +5741,14 @@ Menu.prototype =
 		grabber.className = 'sheet-grabber';
 		panel.appendChild(grabber);
 
+		// Section: Canvas (top-level destructive action)
+		var canvasSection = document.createElement('div');
+		canvasSection.className = 'overflow-section';
+		this.clear.classList.add('overflow-row-danger');
+		this.clear.addEventListener('click', function() { scope.closeOverflow(); }, false);
+		canvasSection.appendChild(this.clear);
+		panel.appendChild(canvasSection);
+
 		// Section: Adjustments (Opacity + Symmetry + Theme)
 		var adjSection = document.createElement('div');
 		adjSection.className = 'overflow-section';
@@ -5808,11 +5819,9 @@ Menu.prototype =
 		this.rec.addEventListener('click',       function() { scope.closeOverflow(); }, false);
 		this.gif.addEventListener('click',       function() { scope.closeOverflow(); }, false);
 		this.zoomReset.addEventListener('click', function() { scope.closeOverflow(); }, false);
-		this.clear.addEventListener('click',     function() { scope.closeOverflow(); }, false);
 		viewSection.appendChild(this.rec);
 		viewSection.appendChild(this.gif);
 		viewSection.appendChild(this.zoomReset);
-		viewSection.appendChild(this.clear);
 		panel.appendChild(viewSection);
 
 		// Section: Help
