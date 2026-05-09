@@ -467,13 +467,6 @@
 			.brush-picker .group-title-recent {
 				color: var(--accent);
 			}
-			.brush-picker .group-title-current {
-				color: var(--ink-soft);
-				font-weight: 600;
-				letter-spacing: 0.04em;
-				text-transform: none;
-				margin-left: 6px;
-			}
 			.brush-picker .group-title-recent::after {
 				content: '';
 				flex: 1;
@@ -5820,9 +5813,6 @@ Menu.prototype =
 		this.recentTitleLabel = document.createElement("span");
 		this.recentTitleLabel.textContent = 'Recent used';
 		this.recentTitle.appendChild(this.recentTitleLabel);
-		this.recentTitleCurrent = document.createElement("span");
-		this.recentTitleCurrent.className = 'group-title-current';
-		this.recentTitle.appendChild(this.recentTitleCurrent);
 		picker.appendChild(this.recentTitle);
 
 		this.recentGrid = document.createElement("div");
@@ -5899,14 +5889,7 @@ Menu.prototype =
 	rebuildRecentBrushes: function()
 	{
 		if (!this.recentGrid) return;
-		var idx = this.selector ? this.selector.selectedIndex : -1;
-		var current = BRUSHES[idx];
-		if (this.recentTitleCurrent) {
-			this.recentTitleCurrent.textContent = current ? '(current ' + current.charAt(0).toUpperCase() + current.slice(1) + ')' : '';
-		}
-		var recent = recentBrushesGet()
-			.filter(function(n) { return n !== current; })
-			.slice(0, RECENT_BRUSHES_VISIBLE);
+		var recent = recentBrushesGet().slice(0, RECENT_BRUSHES_VISIBLE);
 		this.recentGrid.innerHTML = '';
 		if (recent.length === 0) {
 			this.recentTitle.style.display = 'none';
@@ -6531,8 +6514,8 @@ function openBrushSettings(brushName)
 
 // Recently used brushes — persisted stack (most-recent first)
 const RECENT_BRUSHES_KEY = 'harmony-recent-brushes';
-const RECENT_BRUSHES_MAX = 5;
-const RECENT_BRUSHES_VISIBLE = 4;
+const RECENT_BRUSHES_MAX = 6;
+const RECENT_BRUSHES_VISIBLE = 6;
 
 function recentBrushesGet()
 {
