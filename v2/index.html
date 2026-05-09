@@ -3192,8 +3192,12 @@ hatching.prototype =
 		var hx = Math.cos( hatchAngle );
 		var hy = Math.sin( hatchAngle );
 
+		var densityMul = brushSettingGet( 'hatching', 'density' );
+		var lengthMul  = brushSettingGet( 'hatching', 'length' );
+		var jitterAmt  = brushSettingGet( 'hatching', 'jitter' );
+
 		var radius = BRUSH_SIZE * 2 * ( 0.7 + BRUSH_PRESSURE * 0.5 );
-		var lines = 2 + Math.floor( BRUSH_PRESSURE * 4 );
+		var lines = Math.max( 1, Math.round( ( 2 + BRUSH_PRESSURE * 4 ) * densityMul ) );
 
 		this.context.lineCap = 'round';
 		this.context.lineWidth = Math.max( 0.5, BRUSH_SIZE * 0.3 );
@@ -3202,11 +3206,11 @@ hatching.prototype =
 		for ( var i = 0; i < lines; i++ )
 		{
 			var t = ( i / lines - 0.5 ) * 2; // -1..1
-			var jitter = ( Math.random() - 0.5 ) * 0.4;
+			var jitter = ( Math.random() - 0.5 ) * jitterAmt;
 			var off = ( t + jitter ) * radius;
 			var px = -hy * off;
 			var py =  hx * off;
-			var hl = radius * ( 0.7 + Math.random() * 0.5 );
+			var hl = radius * ( 0.7 + Math.random() * 0.5 ) * lengthMul;
 			this.context.beginPath();
 			this.context.moveTo( mouseX + px - hx * hl, mouseY + py - hy * hl );
 			this.context.lineTo( mouseX + px + hx * hl, mouseY + py + hy * hl );
@@ -6300,7 +6304,10 @@ const BRUSH_SETTINGS_DEFS = {
 	hatching: {
 		title: 'Hatching',
 		params: [
-			{ key: 'angle', label: 'Angle', min: 0, max: 180, step: 5, default: 45, suffix: '°' }
+			{ key: 'angle',   label: 'Angle',   min: 0,   max: 180, step: 5,    default: 45,  suffix: '°' },
+			{ key: 'density', label: 'Density', min: 0.5, max: 3.0, step: 0.1,  default: 1.0, format: 'x' },
+			{ key: 'length',  label: 'Length',  min: 0.5, max: 2.0, step: 0.1,  default: 1.0, format: 'x' },
+			{ key: 'jitter',  label: 'Jitter',  min: 0,   max: 1.0, step: 0.05, default: 0.4, format: 'x' }
 		]
 	},
 	crosshatch: {
