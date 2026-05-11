@@ -430,6 +430,8 @@
 				background: #6aa3ff;
 				animation: ss-pulse 1.1s ease-in-out infinite;
 			}
+			.save-status.is-stale .ss-dot,
+			.theme-dark .save-status.is-stale .ss-dot { background: #f08a2a; }
 			.save-status.is-error .ss-dot,
 			.theme-dark .save-status.is-error .ss-dot { background: var(--accent); }
 			.save-status.is-unavailable .ss-dot,
@@ -6816,7 +6818,7 @@ Menu.prototype =
 			this.saveStatus.title = label;
 		}.bind(this);
 
-		this.saveStatus.classList.remove('is-saving', 'is-saved', 'is-error', 'is-unavailable');
+		this.saveStatus.classList.remove('is-saving', 'is-saved', 'is-stale', 'is-error', 'is-unavailable');
 
 		if (state === 'saving') {
 			this.saveStatus.classList.add('is-saving');
@@ -6840,13 +6842,22 @@ Menu.prototype =
 			setLabel('Autosave');
 			return;
 		}
-		this.saveStatus.classList.add('is-saved');
 		var ago = Math.floor((Date.now() - this._saveStatusLastSavedAt) / 1000);
-		setLabel(ago < 4
+		var label = ago < 4
 			? 'Saved just now'
 			: ago < 60
 				? 'Saved · ' + ago + 's ago'
-				: 'Saved · ' + Math.floor(ago / 60) + 'm ago');
+				: 'Saved · ' + Math.floor(ago / 60) + 'm ago';
+		// Orange when there are unsaved strokes AND the last save was ≥10s ago.
+		// Captures the case where the autosave debounce keeps getting reset
+		// by continuous drawing — the user has live work-at-risk.
+		if (typeof _canvasDirty !== 'undefined' && _canvasDirty && ago >= 10) {
+			this.saveStatus.classList.add('is-stale');
+			label = 'Unsaved changes — ' + label.replace(/^Saved /, '');
+		} else {
+			this.saveStatus.classList.add('is-saved');
+		}
+		setLabel(label);
 	},
 
 	syncSize: function()
@@ -7688,6 +7699,7 @@ var CANVAS_KEY     = 'current';
 var _canvasDBOpen  = null;
 var _canvasSaveInflight = false;
 var _canvasSaveQueued   = false;
+var _canvasDirty        = false;  // true when canvas has changes not yet persisted
 var _canvasQuotaWarned  = false;
 
 function openCanvasDB()
@@ -7756,8 +7768,16 @@ function canvasToBlobAsync(canvasEl, type)
 // one resolves). Falls back to a 1× downscale on QuotaExceededError.
 function saveCanvas()
 {
+	// No-op if nothing's changed since the last successful save. Anything
+	// that mutates the canvas (stroke end, undo, redo, clear, upload) sets
+	// _canvasDirty = true and re-arms the autosave timer.
+	if (!_canvasDirty) return Promise.resolve('clean');
 	if (_canvasSaveInflight) { _canvasSaveQueued = true; return Promise.resolve('queued'); }
 	_canvasSaveInflight = true;
+	// Snapshot the current dirty epoch — if new strokes arrive during the
+	// async encode/write, they'll re-dirty the flag, and we'll keep it set
+	// so the next saveCanvas() actually runs instead of short-circuiting.
+	_canvasDirty = false;
 	var savingStart = Date.now();
 	if (menu && menu.setSaveStatus) menu.setSaveStatus('saving');
 
@@ -7774,15 +7794,17 @@ function saveCanvas()
 		.then(function() {
 			_canvasSaveInflight = false;
 			if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
-			if (_canvasSaveQueued) { _canvasSaveQueued = false; saveCanvas(); }
+			if (_canvasSaveQueued || _canvasDirty) { _canvasSaveQueued = false; saveCanvas(); }
 			return 'saved';
 		})
 		.catch(function(err) {
 			_canvasSaveInflight = false;
+			_canvasDirty = true;  // failed write — keep it dirty so we retry
 			var quota = err && (err.name === 'QuotaExceededError' ||
 			                    /quota/i.test(String(err && err.message)));
 			if (quota) {
 				return saveCanvasDownscaled().then(function() {
+					_canvasDirty = false;  // downscale path succeeded
 					if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
 					if (!_canvasQuotaWarned && menu && menu.showToast) {
 						_canvasQuotaWarned = true;
@@ -9159,6 +9181,7 @@ function onMenuUpload()
 				context.drawImage(image, 0, 0);
 				context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
 
+				_canvasDirty = true;
 				saveCanvas();
 
 				if (savedHistory && savedHistory.length > 0)
@@ -9228,6 +9251,7 @@ function _doClearCanvas()
 {
 	context.clearRect(0, 0, SCREEN_WIDTH * PIXEL_RATIO, SCREEN_HEIGHT * PIXEL_RATIO);
 
+	_canvasDirty = true;
 	saveCanvas();
 	saveToHistory();
 
@@ -9354,6 +9378,7 @@ function onCanvasMouseUp()
 
 	if (STORAGE)
 	{
+		_canvasDirty = true;
 		clearTimeout(saveTimeOut);
 		saveTimeOut = setTimeout(saveCanvas, 2000);
 	}
@@ -9647,6 +9672,7 @@ function onMenuUndo()
 	historyIndex--;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	pendingBrushTrim = brushHistory[historyIndex] || null;
+	_canvasDirty = true;
 	saveCanvas();
 	if (gifIsRecording) gifRecordFrame();
 }
@@ -9659,6 +9685,7 @@ function onMenuRedo()
 	historyIndex++;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	pendingBrushTrim = brushHistory[historyIndex] || null;
+	_canvasDirty = true;
 	saveCanvas();
 	if (gifIsRecording) gifRecordFrame();
 }
