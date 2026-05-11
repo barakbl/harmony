@@ -243,7 +243,11 @@
 			}
 			.swatch:hover { transform: scale(1.06); }
 			.swatch.fg { top: 0; left: 0; z-index: 2; }
-			.swatch.bg { bottom: 0; right: 0; z-index: 1; }
+			.swatch.sec { bottom: 0; right: 0; z-index: 1; }
+			.swatch.is-active {
+				box-shadow: 0 0 0 2px var(--accent), 0 1px 3px rgba(0,0,0,0.12);
+				z-index: 3;
+			}
 
 			/* ─── Brush button (opens picker) ─────────────────────────── */
 			.brush-btn {
@@ -412,6 +416,7 @@
 				display: none !important;
 			}
 			.gui.collapsed { padding: 5px; }
+			.gui.menu-hidden { display: none !important; }
 
 			/* ─── Brush picker popover ────────────────────────────────── */
 			.brush-picker {
@@ -1488,6 +1493,113 @@
 			.hex-row .copy-btn svg { width: 14px; height: 14px; }
 			.theme-dark .hex-row { background: rgba(255,255,255,0.05); }
 			.theme-dark .hex-row .copy-btn:hover { background: rgba(255,255,255,0.10); }
+
+			/* ─── Compact unified swatch picker ────────────────────────── */
+			.swatch-popover {
+				position: absolute;
+				background: rgba(255,255,255,0.96);
+				-webkit-backdrop-filter: blur(22px) saturate(180%);
+				backdrop-filter: blur(22px) saturate(180%);
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				box-shadow: var(--shadow-pop);
+				padding: 12px;
+				z-index: 1100;
+				width: 240px;
+				visibility: hidden;
+				opacity: 0;
+				transform: translateY(-4px);
+				transition: opacity 140ms ease, transform 140ms ease, visibility 140ms;
+				font-family: var(--ui);
+			}
+			.swatch-popover.open {
+				visibility: visible;
+				opacity: 1;
+				transform: translateY(0);
+			}
+			.theme-dark .swatch-popover {
+				background: rgba(34,35,42,0.96);
+			}
+			.swatch-popover .sp-native-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				margin-bottom: 10px;
+			}
+			.swatch-popover input.sp-native {
+				appearance: none;
+				-webkit-appearance: none;
+				width: 44px;
+				height: 32px;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				background: transparent;
+				padding: 2px;
+				cursor: pointer;
+				flex: 0 0 auto;
+			}
+			.swatch-popover input.sp-native::-webkit-color-swatch-wrapper { padding: 0; }
+			.swatch-popover input.sp-native::-webkit-color-swatch { border: none; border-radius: 6px; }
+			.swatch-popover input.sp-native::-moz-color-swatch { border: none; border-radius: 6px; }
+			.swatch-popover .sp-hex {
+				appearance: none;
+				-webkit-appearance: none;
+				flex: 1;
+				min-width: 0;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				padding: 6px 8px;
+				background: rgba(20,22,28,0.04);
+				font-family: var(--mono);
+				font-size: 12px;
+				font-weight: 600;
+				color: var(--ink);
+				outline: none;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+			}
+			.theme-dark .swatch-popover .sp-hex { background: rgba(255,255,255,0.06); }
+			.swatch-popover .sp-label {
+				font-size: 10px;
+				color: var(--ink-mute);
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				font-weight: 600;
+				margin: 6px 0 6px;
+			}
+			.swatch-popover .sp-grid {
+				display: grid;
+				grid-template-columns: repeat(8, 1fr);
+				gap: 6px;
+			}
+			.swatch-popover .sp-sw {
+				appearance: none;
+				-webkit-appearance: none;
+				width: 100%;
+				aspect-ratio: 1 / 1;
+				border-radius: 6px;
+				cursor: pointer;
+				border: 0;
+				box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+				padding: 0;
+				transition: transform 100ms ease;
+				touch-action: manipulation;
+			}
+			.theme-dark .swatch-popover .sp-sw { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18); }
+			.swatch-popover .sp-sw:hover { transform: scale(1.10); }
+			.swatch-popover .sp-sw:active { transform: scale(0.92); }
+			.swatch-popover .sp-add {
+				background: transparent;
+				border: 1.5px dashed var(--line-strong);
+				color: var(--ink-mute);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				box-shadow: none;
+			}
+			.swatch-popover .sp-add:hover { color: var(--ink); border-color: var(--line); background: rgba(20,22,28,0.05); }
+			.swatch-popover .sp-add svg { width: 14px; height: 14px; }
+			.swatch-popover .sp-recent-empty { display: none; }
 
 			/* Mobile tweaks */
 			@media (max-width: 760px) {
@@ -5434,6 +5546,19 @@ function themeGet()
 	try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
 }
 
+function rgbToHex(c)
+{
+	function h(n) { var s = Math.max(0, Math.min(255, n|0)).toString(16); return s.length === 1 ? '0' + s : s; }
+	return '#' + h(c[0]) + h(c[1]) + h(c[2]);
+}
+
+function hexToRgb(hex)
+{
+	var s = hex.replace('#', '');
+	if (s.length === 3) s = s[0]+s[0]+s[1]+s[1]+s[2]+s[2];
+	return [ parseInt(s.substr(0,2),16), parseInt(s.substr(2,2),16), parseInt(s.substr(4,2),16) ];
+}
+
 function themeIsDark(mode)
 {
 	if (mode === 'dark') return true;
@@ -5884,7 +6009,7 @@ Menu.prototype =
 	container: null,
 
 	foregroundColor: null,
-	backgroundColor: null,
+	secondaryColor: null,
 
 	selector: null,
 	opacitySlider: null,
@@ -5903,7 +6028,6 @@ Menu.prototype =
 	about: null,
 	zoomIndicator: null,
 	zoomReset: null,
-	collapseBtn: null,
 	dragHandle: null,
 	brushBtn: null,
 	brushBtnIcon: null,
@@ -5972,16 +6096,16 @@ Menu.prototype =
 		var swatchPair = document.createElement("div");
 		swatchPair.className = 'swatch-pair';
 		this.foregroundColor = document.createElement("div");
-		this.foregroundColor.className = 'swatch fg';
-		this.foregroundColor.title = 'Foreground (shift)';
-		this.backgroundColor = document.createElement("div");
-		this.backgroundColor.className = 'swatch bg';
-		this.backgroundColor.title = 'Background';
-		swatchPair.appendChild(this.backgroundColor);
+		this.foregroundColor.className = 'swatch fg is-active';
+		this.foregroundColor.title = 'Primary colour (click to pick)';
+		this.secondaryColor = document.createElement("div");
+		this.secondaryColor.className = 'swatch sec';
+		this.secondaryColor.title = 'Secondary colour (click to swap)';
+		swatchPair.appendChild(this.secondaryColor);
 		swatchPair.appendChild(this.foregroundColor);
 		gTools.appendChild(swatchPair);
 		this.setForegroundColor( COLOR );
-		this.setBackgroundColor( BACKGROUND_COLOR );
+		this.setSecondaryColor( COLOR_ALT );
 
 		// Brush button + hidden native select
 		var brushWrap = document.createElement("div");
@@ -6137,14 +6261,6 @@ Menu.prototype =
 		this.moreBtn = iconBtn(ICON.more, 'More');
 		this.container.appendChild(this.moreBtn);
 
-		// ─ Collapse button (right end) ─
-		this.collapseBtn = document.createElement('button');
-		this.collapseBtn.type = 'button';
-		this.collapseBtn.className = 'btn collapse-btn';
-		this.collapseBtn.innerHTML = ICON.collapseL;
-		this.collapseBtn.title = 'Collapse menu (H)';
-		this.container.appendChild(this.collapseBtn);
-
 		// ─ Overflow panel ─
 		this.overflowPanel = this.buildOverflowPanel();
 		document.body.appendChild(this.overflowPanel);
@@ -6169,6 +6285,13 @@ Menu.prototype =
 			    !scope.overflowPanel.contains(e.target) &&
 			    !scope.moreBtn.contains(e.target)) {
 				scope.closeOverflow();
+			}
+			if (scope.isSwatchPopoverOpen &&
+			    scope.swatchPopover &&
+			    !scope.swatchPopover.contains(e.target) &&
+			    !scope.foregroundColor.contains(e.target) &&
+			    !scope.secondaryColor.contains(e.target)) {
+				scope.closeSwatchPopover();
 			}
 		}, true);
 
@@ -6525,6 +6648,28 @@ Menu.prototype =
 		themeRow.appendChild(this.themeSelector);
 		adjSection.appendChild(themeRow);
 
+		// Background colour
+		this.bgColorInput = document.createElement('input');
+		this.bgColorInput.type = 'color';
+		this.bgColorInput.title = 'Canvas background colour';
+		this.bgColorInput.value = rgbToHex(BACKGROUND_COLOR);
+		this.bgColorInput.addEventListener('input', function() {
+			var rgb = hexToRgb(scope.bgColorInput.value);
+			BACKGROUND_COLOR[0] = rgb[0];
+			BACKGROUND_COLOR[1] = rgb[1];
+			BACKGROUND_COLOR[2] = rgb[2];
+			document.body.style.backgroundColor = 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')';
+			try { localStorage['harmony-bg'] = JSON.stringify(BACKGROUND_COLOR); } catch (e) {}
+		}, false);
+
+		var bgRow = document.createElement('div');
+		bgRow.className = 'overflow-row with-control';
+		bgRow.innerHTML =
+			'<span class="ovr-icon">' + ICON.theme + '</span>' +
+			'<span class="ovr-label">Background</span>';
+		bgRow.appendChild(this.bgColorInput);
+		adjSection.appendChild(bgRow);
+
 		panel.appendChild(adjSection);
 
 
@@ -6617,9 +6762,167 @@ Menu.prototype =
 		this.foregroundColor.style.background = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
 	},
 
+	setSecondaryColor: function( color )
+	{
+		this.secondaryColor.style.background = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+	},
+
+	buildSwatchPopover: function()
+	{
+		var scope = this;
+		var pop = document.createElement('div');
+		pop.className = 'swatch-popover';
+
+		var row = document.createElement('div');
+		row.className = 'sp-native-row';
+		pop.appendChild(row);
+
+		pop.nativeInput = document.createElement('input');
+		pop.nativeInput.type = 'color';
+		pop.nativeInput.className = 'sp-native';
+		row.appendChild(pop.nativeInput);
+
+		pop.hexInput = document.createElement('input');
+		pop.hexInput.type = 'text';
+		pop.hexInput.className = 'sp-hex';
+		pop.hexInput.maxLength = 7;
+		pop.hexInput.spellcheck = false;
+		row.appendChild(pop.hexInput);
+
+		var paletteLabel = document.createElement('div');
+		paletteLabel.className = 'sp-label';
+		paletteLabel.textContent = 'Palette';
+		pop.appendChild(paletteLabel);
+
+		pop.paletteGrid = document.createElement('div');
+		pop.paletteGrid.className = 'sp-grid';
+		pop.appendChild(pop.paletteGrid);
+
+		pop.recentLabel = document.createElement('div');
+		pop.recentLabel.className = 'sp-label';
+		pop.recentLabel.textContent = 'Recent';
+		pop.appendChild(pop.recentLabel);
+
+		pop.recentGrid = document.createElement('div');
+		pop.recentGrid.className = 'sp-grid';
+		pop.appendChild(pop.recentGrid);
+
+		var commit = function(rgb) {
+			if (!pop._target) return;
+			pop._target[0] = rgb[0];
+			pop._target[1] = rgb[1];
+			pop._target[2] = rgb[2];
+			pop.nativeInput.value = rgbToHex(rgb);
+			pop.hexInput.value = rgbToHex(rgb).toUpperCase();
+			if (pop._onChange) pop._onChange(rgb);
+		};
+
+		pop.nativeInput.addEventListener('input', function() {
+			commit(hexToRgb(pop.nativeInput.value));
+		}, false);
+
+		pop.hexInput.addEventListener('input', function() {
+			var v = pop.hexInput.value.trim();
+			if (v[0] !== '#') v = '#' + v;
+			if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) {
+				commit(hexToRgb(v));
+			}
+		}, false);
+
+		pop._commit = commit;
+
+		document.body.appendChild(pop);
+		return pop;
+	},
+
+	rebuildSwatchPopoverGrids: function()
+	{
+		var pop = this.swatchPopover;
+		if (!pop) return;
+		var commit = pop._commit;
+
+		pop.paletteGrid.innerHTML = '';
+		var palette = paletteLoad();
+		var makeSw = function(c) {
+			var sw = document.createElement('button');
+			sw.type = 'button';
+			sw.className = 'sp-sw';
+			sw.style.background = 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+			sw.title = rgbToHex(c).toUpperCase();
+			sw.addEventListener('click', function(e) {
+				e.preventDefault(); e.stopPropagation();
+				commit([c[0], c[1], c[2]]);
+			}, false);
+			return sw;
+		};
+		for (var i = 0; i < palette.length; i++) {
+			pop.paletteGrid.appendChild(makeSw(palette[i]));
+		}
+
+		var addBtn = document.createElement('button');
+		addBtn.type = 'button';
+		addBtn.className = 'sp-sw sp-add';
+		addBtn.title = 'Add current colour to palette';
+		addBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+		addBtn.addEventListener('click', function(e) {
+			var t = pop._target;
+			if (!t) return;
+			e.preventDefault(); e.stopPropagation();
+			paletteAdd([t[0], t[1], t[2]]);
+		}, false);
+		pop.paletteGrid.appendChild(addBtn);
+
+		pop.recentGrid.innerHTML = '';
+		var recent = recentLoad();
+		if (recent.length === 0) {
+			pop.recentLabel.style.display = 'none';
+			pop.recentGrid.style.display = 'none';
+		} else {
+			pop.recentLabel.style.display = '';
+			pop.recentGrid.style.display = '';
+			for (var j = 0; j < recent.length; j++) {
+				pop.recentGrid.appendChild(makeSw(recent[j]));
+			}
+		}
+	},
+
+	openSwatchPopover: function( anchorEl, target, onChange )
+	{
+		if (!this.swatchPopover) {
+			this.swatchPopover = this.buildSwatchPopover();
+			var scope = this;
+			paletteSubscribe(function() { scope.rebuildSwatchPopoverGrids(); });
+			recentSubscribe(function() { scope.rebuildSwatchPopoverGrids(); });
+		}
+		var pop = this.swatchPopover;
+		pop._target = target;
+		pop._onChange = onChange;
+		pop.nativeInput.value = rgbToHex(target);
+		pop.hexInput.value = rgbToHex(target).toUpperCase();
+		this.rebuildSwatchPopoverGrids();
+
+		if (window.innerWidth <= 760) {
+			pop.style.left = Math.max(8, (window.innerWidth - 240) / 2) + 'px';
+			pop.style.top = '12px';
+		} else {
+			var rect = anchorEl.getBoundingClientRect();
+			var width = 240;
+			pop.style.left = Math.max(8, Math.min(window.innerWidth - width - 8, rect.left)) + 'px';
+			pop.style.top = (rect.bottom + 8) + 'px';
+		}
+		pop.classList.add('open');
+		this.isSwatchPopoverOpen = true;
+	},
+
+	closeSwatchPopover: function()
+	{
+		if (this.swatchPopover) this.swatchPopover.classList.remove('open');
+		this.isSwatchPopoverOpen = false;
+	},
+
 	setBackgroundColor: function( color )
 	{
-		this.backgroundColor.style.background = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+		if (this.bgColorInput) this.bgColorInput.value = rgbToHex(color);
 	},
 
 	setZoomLevel: function( level )
@@ -6627,12 +6930,19 @@ Menu.prototype =
 		this.zoomIndicator.textContent = level.toFixed(1) + '×';
 	},
 
-	toggleCollapse: function()
+	setHidden: function( hidden )
 	{
-		var collapsed = this.container.classList.toggle('collapsed');
-		this.collapseBtn.innerHTML = collapsed ? ICON.collapseR : ICON.collapseL;
-		this.collapseBtn.title = collapsed ? 'Expand menu (H)' : 'Collapse menu (H)';
-		localStorage.setItem('harmonyMenuCollapsed', collapsed ? '1' : '0');
+		this.container.classList.toggle('menu-hidden', !!hidden);
+	},
+
+	isHidden: function()
+	{
+		return this.container.classList.contains('menu-hidden');
+	},
+
+	toggleHidden: function()
+	{
+		this.setHidden(!this.isHidden());
 	}
 }
 
@@ -6697,7 +7007,8 @@ About.prototype =
 		t.innerHTML =
 			'2-finger tap — Undo &nbsp;·&nbsp; 3-finger tap — Redo<br>' +
 			'2-finger pinch — Zoom & pan<br>' +
-			'3-finger swipe down — Collapse menu<br>' +
+			'3-finger swipe — Toggle menu<br>' +
+			'4-finger swipe up — Hide menu &nbsp;·&nbsp; swipe down — Show menu<br>' +
 			'Apple Pencil & stylus — pressure + tilt supported';
 		inner.appendChild(t);
 
@@ -7171,6 +7482,7 @@ var SCREEN_WIDTH = window.innerWidth,
     SYMMETRY_AXES = 0,
     symmetryBrushes = [],
     COLOR = [0, 0, 0],
+    COLOR_ALT = [200, 60, 60],
     BACKGROUND_COLOR = [250, 250, 250],
     STORAGE = window.localStorage,
     brush,
@@ -7328,8 +7640,8 @@ function init()
 	menu = new Menu();
 	menu.foregroundColor.addEventListener('click', onMenuForegroundColor, false);
 	menu.foregroundColor.addEventListener('touchend', onMenuForegroundColor, { passive: false });
-	menu.backgroundColor.addEventListener('click', onMenuBackgroundColor, false);
-	menu.backgroundColor.addEventListener('touchend', onMenuBackgroundColor, false);
+	menu.secondaryColor.addEventListener('click', onMenuSecondaryColor, false);
+	menu.secondaryColor.addEventListener('touchend', onMenuSecondaryColor, false);
 	menu.selector.addEventListener('change', onMenuSelectorChange, false);
 	menu.symmetrySelector.addEventListener('change', onMenuSymmetryChange, false);
 	menu.save.addEventListener('click', onMenuSave, false);
@@ -7354,16 +7666,10 @@ function init()
 	menu.zoomReset.addEventListener('touchend', onMenuZoomReset, false);
 	menu.container.addEventListener('mouseover', onMenuMouseOver, { passive: false });
 	menu.container.addEventListener('mouseout', onMenuMouseOut, { passive: false });
-	menu.collapseBtn.addEventListener('click', function() { menu.toggleCollapse(); });
-	menu.collapseBtn.addEventListener('mousedown', function(e) { e.stopPropagation(); });
-	menu.collapseBtn.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: true });
 	container.appendChild(menu.container);
 
-	if (localStorage.getItem('harmonyMenuCollapsed') === '1') {
-		menu.container.classList.add('collapsed');
-		menu.collapseBtn.innerHTML = ICON.collapseR;
-		menu.collapseBtn.title = 'Expand menu (H)';
-	}
+	try { localStorage.removeItem('harmonyMenuCollapsed'); } catch (e) {}
+	try { localStorage.removeItem('harmonyMenuHidden'); } catch (e) {}
 
 	if (STORAGE)
 	{
@@ -7383,13 +7689,22 @@ function init()
 			localStorageImage.src = localStorage['harmony-canvas'];
 		}
 
-		if (localStorage['harmony-bg'])
+		if (localStorage['harmony-color'])
 		{
 			let array = JSON.parse(localStorage['harmony-color']);
 
 			COLOR[0] = array[0];
 			COLOR[1] = array[1];
 			COLOR[2] = array[2];
+		}
+
+		if (localStorage['harmony-color-alt'])
+		{
+			let array = JSON.parse(localStorage['harmony-color-alt']);
+
+			COLOR_ALT[0] = array[0];
+			COLOR_ALT[1] = array[1];
+			COLOR_ALT[2] = array[2];
 		}
 
 		if (localStorage['harmony-bg'])
@@ -7399,11 +7714,16 @@ function init()
 			BACKGROUND_COLOR[0] = array[0];
 			BACKGROUND_COLOR[1] = array[1];
 			BACKGROUND_COLOR[2] = array[2];
+
+			document.body.style.backgroundColor = 'rgb(' + BACKGROUND_COLOR[0] + ', ' + BACKGROUND_COLOR[1] + ', ' + BACKGROUND_COLOR[2] + ')';
 		}
 	}
 
 	foregroundColorSelector.setColor( COLOR );
 	backgroundColorSelector.setColor( BACKGROUND_COLOR );
+	menu.setForegroundColor( COLOR );
+	menu.setSecondaryColor( COLOR_ALT );
+	menu.setBackgroundColor( BACKGROUND_COLOR );
 
 	if (window.location.hash)
 	{
@@ -7450,7 +7770,10 @@ function init()
 	var _swipeStartY = null;
 	var _swipeStartCount = 0;
 	document.addEventListener('touchstart', function(e) {
-		if (e.touches.length === 3) {
+		if (e.touches.length === 4) {
+			_swipeStartY = e.touches[0].clientY;
+			_swipeStartCount = 4;
+		} else if (e.touches.length === 3) {
 			_swipeStartY = e.touches[0].clientY;
 			_swipeStartCount = 3;
 		} else {
@@ -7459,10 +7782,16 @@ function init()
 		}
 	}, { passive: true });
 	document.addEventListener('touchend', function(e) {
-		if (_swipeStartCount === 3 && _swipeStartY !== null) {
+		if (_swipeStartY !== null) {
 			var deltaY = e.changedTouches[0].clientY - _swipeStartY;
-			if (deltaY > 40) {
-				menu.toggleCollapse();
+			if (_swipeStartCount === 4) {
+				if (deltaY < -40) {
+					menu.setHidden(true);
+				} else if (deltaY > 40) {
+					menu.setHidden(false);
+				}
+			} else if (_swipeStartCount === 3 && Math.abs(deltaY) > 40) {
+				menu.toggleHidden();
 			}
 		}
 		_swipeStartY = null;
@@ -7720,7 +8049,7 @@ function onWindowKeyDown( event )
 		case 72: // h
 			if (document.activeElement.tagName !== 'INPUT' &&
 				document.activeElement.tagName !== 'SELECT') {
-				menu.toggleCollapse();
+				menu.toggleHidden();
 			}
 			break;
 	}
@@ -7780,6 +8109,7 @@ function onDocumentMouseDown( event )
 		if (menu && menu.container && menu.container.contains(target)) return;
 		if (menu && menu.brushPicker && menu.brushPicker.contains(target)) return;
 		if (menu && menu.overflowPanel && menu.overflowPanel.contains(target)) return;
+		if (menu && menu.swatchPopover && menu.swatchPopover.contains(target)) return;
 		if (menu && menu.toastEl && menu.toastEl.contains(target)) return;
 		if (foregroundColorSelector && foregroundColorSelector.container.contains(target)) return;
 		if (backgroundColorSelector && backgroundColorSelector.container.contains(target)) return;
@@ -7853,29 +8183,57 @@ function onBackgroundColorSelectorChange( event )
 	}
 }
 
-
 // MENU
 
-function onMenuForegroundColor()
+function onMenuForegroundColor( event )
 {
+	if (event) { event.preventDefault(); event.stopPropagation(); }
+
 	cleanPopUps();
 
-	foregroundColorSelector.show();
-	foregroundColorSelector.container.style.left = ((SCREEN_WIDTH - foregroundColorSelector.container.offsetWidth) / 2) + 'px';
-	foregroundColorSelector.container.style.top = ((SCREEN_HEIGHT - foregroundColorSelector.container.offsetHeight) / 2) + 'px';
-
-	isFgColorSelectorVisible = true;
+	menu.openSwatchPopover(menu.foregroundColor, COLOR, function(rgb) {
+		menu.setForegroundColor(COLOR);
+		foregroundColorSelector.setColor(COLOR);
+		if (STORAGE) {
+			try { localStorage['harmony-color'] = JSON.stringify(COLOR); } catch (e) {}
+		}
+	});
 }
 
-function onMenuBackgroundColor()
+function onMenuSecondaryColor( event )
 {
+	if (event) { event.preventDefault(); event.stopPropagation(); }
+
 	cleanPopUps();
 
-	backgroundColorSelector.show();
-	backgroundColorSelector.container.style.left = ((SCREEN_WIDTH - backgroundColorSelector.container.offsetWidth) / 2) + 'px';
-	backgroundColorSelector.container.style.top = ((SCREEN_HEIGHT - backgroundColorSelector.container.offsetHeight) / 2) + 'px';
+	// Swap primary ↔ secondary so the clicked swatch becomes the active draw colour,
+	// then open the picker on the (now-primary) slot.
+	var tmp = [COLOR[0], COLOR[1], COLOR[2]];
+	COLOR[0] = COLOR_ALT[0];
+	COLOR[1] = COLOR_ALT[1];
+	COLOR[2] = COLOR_ALT[2];
+	COLOR_ALT[0] = tmp[0];
+	COLOR_ALT[1] = tmp[1];
+	COLOR_ALT[2] = tmp[2];
 
-	isBgColorSelectorVisible = true;
+	menu.setForegroundColor( COLOR );
+	menu.setSecondaryColor( COLOR_ALT );
+	foregroundColorSelector.setColor( COLOR );
+
+	if (STORAGE) {
+		try {
+			localStorage['harmony-color'] = JSON.stringify(COLOR);
+			localStorage['harmony-color-alt'] = JSON.stringify(COLOR_ALT);
+		} catch (e) {}
+	}
+
+	menu.openSwatchPopover(menu.foregroundColor, COLOR, function(rgb) {
+		menu.setForegroundColor(COLOR);
+		foregroundColorSelector.setColor(COLOR);
+		if (STORAGE) {
+			try { localStorage['harmony-color'] = JSON.stringify(COLOR); } catch (e) {}
+		}
+	});
 }
 
 function onMenuSelectorChange()
@@ -9055,6 +9413,11 @@ function cleanPopUps()
 	if (menu && menu.isPickerOpen)
 	{
 		menu.closeBrushPicker();
+	}
+
+	if (menu && menu.isSwatchPopoverOpen)
+	{
+		menu.closeSwatchPopover();
 	}
 
 	if (menu && menu.isOverflowOpen)
