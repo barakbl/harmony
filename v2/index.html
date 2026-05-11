@@ -401,16 +401,18 @@
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
-				width: 28px;
+				width: 14px;
 				height: 28px;
 				cursor: default;
+				opacity: 0.7;
 			}
+			.save-status:hover { opacity: 1; }
 			.save-status .ss-dot {
-				width: 9px; height: 9px; border-radius: 50%;
-				background: rgba(20,22,28,0.25);
-				transition: background 200ms ease, transform 200ms ease;
+				width: 5px; height: 5px; border-radius: 50%;
+				background: rgba(20,22,28,0.20);
+				transition: background 200ms ease, transform 200ms ease, opacity 200ms ease;
 			}
-			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.25); }
+			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.20); }
 			/* Visually hide the label but keep it for screen readers. */
 			.save-status .ss-text {
 				position: absolute;
