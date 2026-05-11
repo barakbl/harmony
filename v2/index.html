@@ -410,6 +410,7 @@
 				background: rgba(20,22,28,0.25);
 				transition: background 200ms ease, transform 200ms ease;
 			}
+			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.25); }
 			/* Visually hide the label but keep it for screen readers. */
 			.save-status .ss-text {
 				position: absolute;
@@ -418,18 +419,23 @@
 				overflow: hidden; clip: rect(0,0,0,0);
 				white-space: nowrap; border: 0;
 			}
-			.save-status.is-saved .ss-dot { background: #2db96b; }
-			.save-status.is-saving .ss-dot {
+			/* State colours — must come AFTER the dark-theme default so they
+			   win on source order at equal specificity. */
+			.save-status.is-saved .ss-dot,
+			.theme-dark .save-status.is-saved .ss-dot { background: #2db96b; }
+			.save-status.is-saving .ss-dot,
+			.theme-dark .save-status.is-saving .ss-dot {
 				background: #6aa3ff;
 				animation: ss-pulse 1.1s ease-in-out infinite;
 			}
-			.save-status.is-error .ss-dot { background: var(--accent); }
-			.save-status.is-unavailable .ss-dot { background: #c9a23a; }
+			.save-status.is-error .ss-dot,
+			.theme-dark .save-status.is-error .ss-dot { background: var(--accent); }
+			.save-status.is-unavailable .ss-dot,
+			.theme-dark .save-status.is-unavailable .ss-dot { background: #c9a23a; }
 			@keyframes ss-pulse {
 				0%, 100% { transform: scale(1);   opacity: 1; }
 				50%      { transform: scale(0.55); opacity: 0.45; }
 			}
-			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.25); }
 
 			/* ─── Zoom indicator ──────────────────────────────────────── */
 			.zoom-pill {
