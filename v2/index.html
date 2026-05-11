@@ -6132,6 +6132,25 @@ Menu.prototype =
 		this.dragHandle.addEventListener('mousedown',  onDragStart, false);
 		this.dragHandle.addEventListener('touchstart', onDragStart, { passive: false });
 
+		// ─ Group: Save status (passive autosave indicator) ─
+		// Sits at the leftmost end of the toolbar, in the "system state"
+		// cluster next to the drag handle — out of the active drawing
+		// controls so the dot can recede from view.
+		var gSave = group();
+		this.saveStatus = document.createElement('div');
+		this.saveStatus.className = 'save-status';
+		this.saveStatus.setAttribute('role', 'status');
+		this.saveStatus.setAttribute('aria-live', 'polite');
+		var ssDot = document.createElement('span');
+		ssDot.className = 'ss-dot';
+		var ssText = document.createElement('span');
+		ssText.className = 'ss-text';
+		this.saveStatus.appendChild(ssDot);
+		this.saveStatus.appendChild(ssText);
+		gSave.appendChild(this.saveStatus);
+		this.container.appendChild(gSave);
+		this._saveStatusLastSavedAt = 0;
+
 		// ─ Group: Tools (colors + brush) ─
 		var gTools = group();
 		this.container.appendChild(gTools);
@@ -6259,24 +6278,6 @@ Menu.prototype =
 			op.textContent = symOptions[s].label;
 			this.symmetrySelector.appendChild(op);
 		}
-
-		this.container.appendChild(divider());
-
-		// ─ Group: Save status (passive autosave indicator) ─
-		var gSave = group();
-		this.saveStatus = document.createElement('div');
-		this.saveStatus.className = 'save-status';
-		this.saveStatus.setAttribute('role', 'status');
-		this.saveStatus.setAttribute('aria-live', 'polite');
-		var ssDot = document.createElement('span');
-		ssDot.className = 'ss-dot';
-		var ssText = document.createElement('span');
-		ssText.className = 'ss-text';
-		this.saveStatus.appendChild(ssDot);
-		this.saveStatus.appendChild(ssText);
-		gSave.appendChild(this.saveStatus);
-		this.container.appendChild(gSave);
-		this._saveStatusLastSavedAt = 0;
 
 		// Build wide rows for the overflow panel
 		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
