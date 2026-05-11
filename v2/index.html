@@ -7129,7 +7129,9 @@ About.prototype =
 		kbd.innerHTML =
 			'<span><span class="key">d</span><span class="key">f</span> Brush size</span>' +
 			'<span><span class="key">r</span> Reset brush</span>' +
-			'<span><span class="key">shift</span> Color wheel</span>' +
+			'<span><span class="key">c</span> FG color</span>' +
+			'<span><span class="key">s</span> Secondary color</span>' +
+			'<span><span class="key">x</span> Swap colors</span>' +
 			'<span><span class="key">alt</span> Color picker</span>' +
 			'<span><span class="key">ctrl</span>+scroll Zoom</span>' +
 			'<span><span class="key">b</span> Reset zoom</span>' +
@@ -8370,15 +8372,8 @@ function onWindowKeyDown( event )
 
 	switch(event.keyCode)
 	{
-		case 16: // Shift
+		case 16: // Shift (used for line-constrain while drawing)
 			shiftKeyIsDown = true;
-			if (!isDrawing) {
-				// Pop the color wheel (existing behavior). Suppressed mid-stroke
-				// because shift is repurposed for line-constrain while drawing.
-				foregroundColorSelector.container.style.visibility = 'visible';
-				foregroundColorSelector.container.style.left = (mouseX - foregroundColorSelector.container.offsetWidth / 2) + 'px';
-				foregroundColorSelector.container.style.top  = (mouseY - foregroundColorSelector.container.offsetHeight / 2) + 'px';
-			}
 			break;
 
 		case 18: // Alt
@@ -8412,7 +8407,6 @@ function onWindowKeyUp( event )
 	{
 		case 16: // Shift
 			shiftKeyIsDown = false;
-			foregroundColorSelector.container.style.visibility = 'hidden';
 			break;
 
 		case 18: // Alt
@@ -8427,6 +8421,38 @@ function onWindowKeyUp( event )
 			break;
 		case 66: // b
 			document.body.style.backgroundImage = null;
+			break;
+
+		case 67: // c — open FG color picker
+			if (document.activeElement.tagName === 'INPUT' ||
+				document.activeElement.tagName === 'SELECT' ||
+				event.ctrlKey || event.metaKey) break;
+			onMenuForegroundColor();
+			break;
+
+		case 83: // s — open secondary color picker
+			if (document.activeElement.tagName === 'INPUT' ||
+				document.activeElement.tagName === 'SELECT' ||
+				event.ctrlKey || event.metaKey) break;
+			onMenuSecondaryColor();
+			break;
+
+		case 88: // x — swap FG ↔ secondary
+			if (document.activeElement.tagName === 'INPUT' ||
+				document.activeElement.tagName === 'SELECT' ||
+				event.ctrlKey || event.metaKey) break;
+			var _swap = [COLOR[0], COLOR[1], COLOR[2]];
+			COLOR[0] = COLOR_ALT[0]; COLOR[1] = COLOR_ALT[1]; COLOR[2] = COLOR_ALT[2];
+			COLOR_ALT[0] = _swap[0]; COLOR_ALT[1] = _swap[1]; COLOR_ALT[2] = _swap[2];
+			menu.setForegroundColor(COLOR);
+			menu.setSecondaryColor(COLOR_ALT);
+			foregroundColorSelector.setColor(COLOR);
+			if (STORAGE) {
+				try {
+					localStorage['harmony-color'] = JSON.stringify(COLOR);
+					localStorage['harmony-color-alt'] = JSON.stringify(COLOR_ALT);
+				} catch (e) {}
+			}
 			break;
 	}
 
@@ -9324,13 +9350,15 @@ function onCanvasMouseDown( event )
 	clearTimeout(saveTimeOut);
 	cleanPopUps();
 
-	if (altKeyIsDown)
+	if (event.altKey)
 	{
 		flatten();
 
 		data = flattenCanvas.getContext("2d").getImageData(0, 0, flattenCanvas.width, flattenCanvas.height).data;
 		var canvasPos = screenToCanvas(event.clientX, event.clientY);
-		position = (Math.round(canvasPos.x) + (Math.round(canvasPos.y) * canvas.width)) * 4;
+		var dx = Math.round(canvasPos.x * PIXEL_RATIO);
+		var dy = Math.round(canvasPos.y * PIXEL_RATIO);
+		position = (dx + dy * flattenCanvas.width) * 4;
 
 		foregroundColorSelector.setColor( [ data[position], data[position + 1], data[position + 2] ] );
 
