@@ -6282,9 +6282,18 @@ Menu.prototype =
 		}
 
 		// Build wide rows for the overflow panel
-		this.download         = rowBtn(ICON.download, 'Download',           'Save (compact, WebP — smaller file)');
-		this.downloadLossless = rowBtn(ICON.download, 'Download · lossless', 'Save lossless (PNG — larger file)');
-		this.upload           = rowBtn(ICON.upload,   'Upload',             'Open .harmony file');
+		this.download         = rowBtn(ICON.download, 'Download', 'Save (compact WebP, or PNG when Lossless is on)');
+		this.upload           = rowBtn(ICON.upload,   'Upload',   'Open .harmony file');
+
+		// Lossless toggle — defaults to off (= compact WebP). Persists so a
+		// user who prefers archival PNG keeps that choice across sessions.
+		this.losslessToggle = document.createElement('input');
+		this.losslessToggle.type = 'checkbox';
+		this.losslessToggle.id   = 'lossless-toggle';
+		try { this.losslessToggle.checked = localStorage.getItem('harmony-download-lossless') === '1'; } catch (e) {}
+		this.losslessToggle.addEventListener('change', function() {
+			try { localStorage.setItem('harmony-download-lossless', this.losslessToggle.checked ? '1' : '0'); } catch (e) {}
+		}.bind(this));
 		this.rec          = rowBtn(ICON.rec,      'Record',        'Record');
 		this.gif          = rowBtn(ICON.gif,      'Export GIF',    'Export GIF');
 		this.zoomReset    = rowBtn(ICON.zoom,     'Reset zoom',    'Reset zoom (b)');
@@ -6733,11 +6742,25 @@ Menu.prototype =
 		// Section: Files
 		var fileSection = document.createElement('div');
 		fileSection.className = 'overflow-section';
-		this.download.addEventListener('click',         function() { scope.closeOverflow(); }, false);
-		this.downloadLossless.addEventListener('click', function() { scope.closeOverflow(); }, false);
-		this.upload.addEventListener('click',           function() { scope.closeOverflow(); }, false);
+		this.download.addEventListener('click', function() { scope.closeOverflow(); }, false);
+		this.upload.addEventListener('click',   function() { scope.closeOverflow(); }, false);
 		fileSection.appendChild(this.download);
-		fileSection.appendChild(this.downloadLossless);
+
+		// Sub-row: Lossless toggle (gates Download format above)
+		var losslessRow = document.createElement('div');
+		losslessRow.className = 'overflow-row with-control is-sub-row';
+		losslessRow.innerHTML =
+			'<span class="ovr-icon ovr-icon-sub is-last"></span>' +
+			'<label class="ovr-label" for="lossless-toggle">Lossless (PNG)</label>';
+		losslessRow.appendChild(this.losslessToggle);
+		// Clicking anywhere in the sub-row should also toggle the checkbox.
+		losslessRow.addEventListener('click', function(e) {
+			if (e.target === scope.losslessToggle) return;
+			scope.losslessToggle.checked = !scope.losslessToggle.checked;
+			scope.losslessToggle.dispatchEvent(new Event('change'));
+		}, false);
+		fileSection.appendChild(losslessRow);
+
 		fileSection.appendChild(this.upload);
 		panel.appendChild(fileSection);
 
@@ -7951,10 +7974,11 @@ function init()
 	menu.secondaryColor.addEventListener('touchend', onMenuSecondaryColor, false);
 	menu.selector.addEventListener('change', onMenuSelectorChange, false);
 	menu.symmetrySelector.addEventListener('change', onMenuSymmetryChange, false);
-	menu.download.addEventListener('click',           function() { onMenuDownload('webp'); }, false);
-	menu.download.addEventListener('touchend',        function() { onMenuDownload('webp'); }, false);
-	menu.downloadLossless.addEventListener('click',    function() { onMenuDownload('png');  }, false);
-	menu.downloadLossless.addEventListener('touchend', function() { onMenuDownload('png');  }, false);
+	function _doDownload() {
+		onMenuDownload(menu.losslessToggle && menu.losslessToggle.checked ? 'png' : 'webp');
+	}
+	menu.download.addEventListener('click',    _doDownload, false);
+	menu.download.addEventListener('touchend', _doDownload, false);
 	menu.rec.addEventListener('click', gifToggleRecording, false);
 	menu.rec.addEventListener('touchend', gifToggleRecording, false);
 	menu.gif.addEventListener('click', onMenuGif, false);
