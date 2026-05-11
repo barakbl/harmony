@@ -6282,8 +6282,9 @@ Menu.prototype =
 		}
 
 		// Build wide rows for the overflow panel
-		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
-		this.upload       = rowBtn(ICON.upload,   'Upload',        'Open SVG');
+		this.download         = rowBtn(ICON.download, 'Download',           'Save (compact, WebP — smaller file)');
+		this.downloadLossless = rowBtn(ICON.download, 'Download · lossless', 'Save lossless (PNG — larger file)');
+		this.upload           = rowBtn(ICON.upload,   'Upload',             'Open .harmony file');
 		this.rec          = rowBtn(ICON.rec,      'Record',        'Record');
 		this.gif          = rowBtn(ICON.gif,      'Export GIF',    'Export GIF');
 		this.zoomReset    = rowBtn(ICON.zoom,     'Reset zoom',    'Reset zoom (b)');
@@ -6732,9 +6733,11 @@ Menu.prototype =
 		// Section: Files
 		var fileSection = document.createElement('div');
 		fileSection.className = 'overflow-section';
-		this.download.addEventListener('click', function() { scope.closeOverflow(); }, false);
-		this.upload.addEventListener('click',   function() { scope.closeOverflow(); }, false);
+		this.download.addEventListener('click',         function() { scope.closeOverflow(); }, false);
+		this.downloadLossless.addEventListener('click', function() { scope.closeOverflow(); }, false);
+		this.upload.addEventListener('click',           function() { scope.closeOverflow(); }, false);
 		fileSection.appendChild(this.download);
+		fileSection.appendChild(this.downloadLossless);
 		fileSection.appendChild(this.upload);
 		panel.appendChild(fileSection);
 
@@ -7948,8 +7951,10 @@ function init()
 	menu.secondaryColor.addEventListener('touchend', onMenuSecondaryColor, false);
 	menu.selector.addEventListener('change', onMenuSelectorChange, false);
 	menu.symmetrySelector.addEventListener('change', onMenuSymmetryChange, false);
-	menu.download.addEventListener('click', onMenuDownload, false);
-	menu.download.addEventListener('touchend', onMenuDownload, false);
+	menu.download.addEventListener('click',           function() { onMenuDownload('webp'); }, false);
+	menu.download.addEventListener('touchend',        function() { onMenuDownload('webp'); }, false);
+	menu.downloadLossless.addEventListener('click',    function() { onMenuDownload('png');  }, false);
+	menu.downloadLossless.addEventListener('touchend', function() { onMenuDownload('png');  }, false);
 	menu.rec.addEventListener('click', gifToggleRecording, false);
 	menu.rec.addEventListener('touchend', gifToggleRecording, false);
 	menu.gif.addEventListener('click', onMenuGif, false);
@@ -8589,11 +8594,17 @@ function onMenuMouseOut()
 	isMenuMouseOver = false;
 }
 
-function onMenuDownload()
+function onMenuDownload( format )
 {
+	// 'webp' (compact, ~10–30× smaller, visually indistinguishable) is the
+	// default. 'png' is lossless — bigger files but pixel-perfect, used when
+	// the user explicitly picks "Download · lossless".
+	var mime    = format === 'png' ? 'image/png'  : 'image/webp';
+	var quality = format === 'png' ? undefined    : 0.92;
+
 	flatten();
 
-	var data = flattenCanvas.toDataURL('image/png');
+	var data = flattenCanvas.toDataURL(mime, quality);
 
 	var historyData = [];
 	var tempCanvas = document.createElement('canvas');
@@ -8604,7 +8615,7 @@ function onMenuDownload()
 	for (var i = 0; i < undoHistory.length; i++)
 	{
 		tempCtx.putImageData(undoHistory[i], 0, 0);
-		historyData.push(tempCanvas.toDataURL('image/png'));
+		historyData.push(tempCanvas.toDataURL(mime, quality));
 	}
 
 	var metadata = '<metadata><harmony:history xmlns:harmony="urn:harmony" index="' + historyIndex + '">'
