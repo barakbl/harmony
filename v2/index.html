@@ -7200,6 +7200,8 @@ var SCREEN_WIDTH = window.innerWidth,
     shiftAnchorY = null,
     multiTouchFingers = 0,
     undoHistory = [],
+    brushHistory = [],
+    pendingBrushTrim = null,
     historyIndex = -1,
     HISTORY_MAX = 30,
     zoomLevel = 1,
@@ -7741,6 +7743,7 @@ function onWindowKeyUp( event )
 			brush.destroy();
 			brush = eval("new " + BRUSHES[menu.selector.selectedIndex] + "(context)");
 			recreateSymmetryBrushes();
+			syncBrushHistorySnapshots();
 			break;
 		case 66: // b
 			document.body.style.backgroundImage = null;
@@ -7883,6 +7886,7 @@ function onMenuSelectorChange()
 	brush.destroy();
 	brush = eval("new " + BRUSHES[menu.selector.selectedIndex] + "(context)");
 	recreateSymmetryBrushes();
+	syncBrushHistorySnapshots();
 
 	window.location.hash = BRUSHES[menu.selector.selectedIndex];
 }
@@ -7891,6 +7895,7 @@ function onMenuSymmetryChange()
 {
 	SYMMETRY_AXES = parseInt(menu.symmetrySelector.value, 10);
 	recreateSymmetryBrushes();
+	syncBrushHistorySnapshots();
 	menu.updateSymGuideRows();
 }
 
@@ -8537,6 +8542,7 @@ function onMenuUpload()
 								{
 									undoHistory = newHistory;
 									historyIndex = savedIndex;
+									syncBrushHistorySnapshots();
 								}
 							}, false);
 
@@ -8583,6 +8589,7 @@ function _doClearCanvas()
 	brush.destroy();
 	brush = eval("new " + BRUSHES[menu.selector.selectedIndex] + "(context)");
 	recreateSymmetryBrushes();
+	syncBrushHistorySnapshots();
 
 	if (gifIsRecording)
 	{
@@ -8640,6 +8647,7 @@ function onCanvasMouseDown( event )
 	isDrawing = true;
 	shiftAnchorX = null;
 	shiftAnchorY = null;
+	applyPendingBrushTrim();
 	brush.strokeStart( pos.x, pos.y );
 
 	var symPoints = getSymmetryPoints(pos.x, pos.y);
@@ -8758,6 +8766,7 @@ function onCanvasTouchStart( event )
 		shiftAnchorX = null;
 		shiftAnchorY = null;
 		var pos = screenToCanvas(event.touches[0].pageX, event.touches[0].pageY);
+		applyPendingBrushTrim();
 		brush.strokeStart( pos.x, pos.y );
 
 		var symPoints = getSymmetryPoints(pos.x, pos.y);
@@ -8910,13 +8919,77 @@ function onMenuZoomReset()
 
 //
 
+// Brush instances keep a points[] history across strokes for the sketchy
+// connecting-line effect. After undo, those points still reference strokes
+// that are no longer on the canvas, so the next stroke would draw lines back
+// to nothing. We snapshot the brush's points length per undo entry, then trim
+// to the snapshot just before the next stroke starts (deferred so redo can
+// still reach a longer state without data loss).
+
+function captureBrushSnapshot()
+{
+	var sym = [];
+	for (var i = 0; i < symmetryBrushes.length; i++)
+	{
+		var b = symmetryBrushes[i];
+		sym.push(b && b.points ? [b.points.length, b.count | 0] : null);
+	}
+	return {
+		main: brush && brush.points ? [brush.points.length, brush.count | 0] : null,
+		sym: sym
+	};
+}
+
+function applyPendingBrushTrim()
+{
+	if (!pendingBrushTrim) return;
+	var s = pendingBrushTrim;
+	pendingBrushTrim = null;
+	if (s.main && brush && brush.points)
+	{
+		brush.points.length = s.main[0];
+		brush.count = s.main[1];
+	}
+	if (s.sym)
+	{
+		for (var i = 0; i < symmetryBrushes.length && i < s.sym.length; i++)
+		{
+			var sm = s.sym[i];
+			if (sm && symmetryBrushes[i] && symmetryBrushes[i].points)
+			{
+				symmetryBrushes[i].points.length = sm[0];
+				symmetryBrushes[i].count = sm[1];
+			}
+		}
+	}
+}
+
+function syncBrushHistorySnapshots()
+{
+	// Brush instance was replaced — old snapshots no longer apply. Replace
+	// every entry with the new (fresh, empty) brush's snapshot so that
+	// undoing back to any earlier state leaves the new brush in its initial
+	// state.
+	var snap = captureBrushSnapshot();
+	brushHistory = [];
+	for (var i = 0; i < undoHistory.length; i++) brushHistory.push(snap);
+	pendingBrushTrim = null;
+}
+
 function saveToHistory()
 {
 	undoHistory = undoHistory.slice(0, historyIndex + 1);
 	undoHistory.push(context.getImageData(0, 0, canvas.width, canvas.height));
 
+	brushHistory = brushHistory.slice(0, historyIndex + 1);
+	brushHistory.push(captureBrushSnapshot());
+
 	if (undoHistory.length > HISTORY_MAX)
-		undoHistory.splice(0, undoHistory.length - HISTORY_MAX);
+	{
+		var drop = undoHistory.length - HISTORY_MAX;
+		undoHistory.splice(0, drop);
+		brushHistory.splice(0, drop);
+	}
 
 	historyIndex = undoHistory.length - 1;
 }
@@ -8928,6 +9001,7 @@ function onMenuUndo()
 
 	historyIndex--;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
+	pendingBrushTrim = brushHistory[historyIndex] || null;
 	saveToLocalStorage();
 	if (gifIsRecording) gifRecordFrame();
 }
@@ -8939,6 +9013,7 @@ function onMenuRedo()
 
 	historyIndex++;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
+	pendingBrushTrim = brushHistory[historyIndex] || null;
 	saveToLocalStorage();
 	if (gifIsRecording) gifRecordFrame();
 }
