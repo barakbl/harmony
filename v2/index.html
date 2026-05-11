@@ -7749,10 +7749,19 @@ function saveCanvas()
 {
 	if (_canvasSaveInflight) { _canvasSaveQueued = true; return Promise.resolve('queued'); }
 	_canvasSaveInflight = true;
+	var savingStart = Date.now();
 	if (menu && menu.setSaveStatus) menu.setSaveStatus('saving');
 
 	return canvasToBlobAsync(canvas, 'image/png')
 		.then(idbPutCanvasBlob)
+		.then(function() {
+			// Hold the 'saving' state on screen for at least this long so the
+			// blue pulse is actually visible even when IDB writes complete in
+			// a few ms.
+			var SAVING_MIN_MS = 450;
+			var remaining = Math.max(0, SAVING_MIN_MS - (Date.now() - savingStart));
+			return new Promise(function(r){ setTimeout(r, remaining); });
+		})
 		.then(function() {
 			_canvasSaveInflight = false;
 			if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
