@@ -396,6 +396,51 @@
 				pointer-events: none;
 			}
 
+			/* ─── Save status pip (autosave indicator) ────────────────── */
+			.save-status {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 14px;
+				height: 28px;
+				cursor: default;
+				opacity: 0.7;
+			}
+			.save-status:hover { opacity: 1; }
+			.save-status .ss-dot {
+				width: 5px; height: 5px; border-radius: 50%;
+				background: rgba(20,22,28,0.20);
+				transition: background 200ms ease, transform 200ms ease, opacity 200ms ease;
+			}
+			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.20); }
+			/* Visually hide the label but keep it for screen readers. */
+			.save-status .ss-text {
+				position: absolute;
+				width: 1px; height: 1px;
+				padding: 0; margin: -1px;
+				overflow: hidden; clip: rect(0,0,0,0);
+				white-space: nowrap; border: 0;
+			}
+			/* State colours — must come AFTER the dark-theme default so they
+			   win on source order at equal specificity. */
+			.save-status.is-saved .ss-dot,
+			.theme-dark .save-status.is-saved .ss-dot { background: #2db96b; }
+			.save-status.is-saving .ss-dot,
+			.theme-dark .save-status.is-saving .ss-dot {
+				background: #6aa3ff;
+				animation: ss-pulse 1.1s ease-in-out infinite;
+			}
+			.save-status.is-stale .ss-dot,
+			.theme-dark .save-status.is-stale .ss-dot { background: #f08a2a; }
+			.save-status.is-error .ss-dot,
+			.theme-dark .save-status.is-error .ss-dot { background: var(--accent); }
+			.save-status.is-unavailable .ss-dot,
+			.theme-dark .save-status.is-unavailable .ss-dot { background: #c9a23a; }
+			@keyframes ss-pulse {
+				0%, 100% { transform: scale(1);   opacity: 1; }
+				50%      { transform: scale(0.55); opacity: 0.45; }
+			}
+
 			/* ─── Zoom indicator ──────────────────────────────────────── */
 			.zoom-pill {
 				display: inline-flex;
@@ -6017,7 +6062,7 @@ Menu.prototype =
 	sizeSlider: null,
 	sizeLabel: null,
 	symmetrySelector: null,
-	save: null,
+	saveStatus: null,
 	download: null,
 	rec: null,
 	gif: null,
@@ -6088,6 +6133,25 @@ Menu.prototype =
 		}
 		this.dragHandle.addEventListener('mousedown',  onDragStart, false);
 		this.dragHandle.addEventListener('touchstart', onDragStart, { passive: false });
+
+		// ─ Group: Save status (passive autosave indicator) ─
+		// Sits at the leftmost end of the toolbar, in the "system state"
+		// cluster next to the drag handle — out of the active drawing
+		// controls so the dot can recede from view.
+		var gSave = group();
+		this.saveStatus = document.createElement('div');
+		this.saveStatus.className = 'save-status';
+		this.saveStatus.setAttribute('role', 'status');
+		this.saveStatus.setAttribute('aria-live', 'polite');
+		var ssDot = document.createElement('span');
+		ssDot.className = 'ss-dot';
+		var ssText = document.createElement('span');
+		ssText.className = 'ss-text';
+		this.saveStatus.appendChild(ssDot);
+		this.saveStatus.appendChild(ssText);
+		gSave.appendChild(this.saveStatus);
+		this.container.appendChild(gSave);
+		this._saveStatusLastSavedAt = 0;
 
 		// ─ Group: Tools (colors + brush) ─
 		var gTools = group();
@@ -6216,14 +6280,6 @@ Menu.prototype =
 			op.textContent = symOptions[s].label;
 			this.symmetrySelector.appendChild(op);
 		}
-
-		this.container.appendChild(divider());
-
-		// ─ Group: Files (Save lives on the toolbar; Record / Export GIF move to the More menu) ─
-		var gFiles = group();
-		this.save     = iconBtn(ICON.save,     'Save');
-		gFiles.appendChild(this.save);
-		this.container.appendChild(gFiles);
 
 		// Build wide rows for the overflow panel
 		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
@@ -6748,6 +6804,60 @@ Menu.prototype =
 		this._toastTimer = setTimeout(function() {
 			scope.toastEl.classList.remove('show');
 		}, 1500);
+	},
+
+	setSaveStatus: function(state)
+	{
+		// state: 'saving' | 'saved' | 'error' | 'unavailable' | 'tick'
+		// 'tick' just refreshes the relative-time tooltip without changing state.
+		if (!this.saveStatus) return;
+		var txt = this.saveStatus.querySelector('.ss-text');
+
+		var setLabel = function(label) {
+			txt.textContent = label;
+			this.saveStatus.title = label;
+		}.bind(this);
+
+		this.saveStatus.classList.remove('is-saving', 'is-saved', 'is-stale', 'is-error', 'is-unavailable');
+
+		if (state === 'saving') {
+			this.saveStatus.classList.add('is-saving');
+			setLabel('Saving…');
+			return;
+		}
+		if (state === 'error') {
+			this.saveStatus.classList.add('is-error');
+			setLabel("Can't save — please download");
+			return;
+		}
+		if (state === 'unavailable') {
+			this.saveStatus.classList.add('is-unavailable');
+			setLabel('Browser storage unavailable');
+			return;
+		}
+		if (state === 'saved') {
+			this._saveStatusLastSavedAt = Date.now();
+		}
+		if (!this._saveStatusLastSavedAt) {
+			setLabel('Autosave');
+			return;
+		}
+		var ago = Math.floor((Date.now() - this._saveStatusLastSavedAt) / 1000);
+		var label = ago < 4
+			? 'Saved just now'
+			: ago < 60
+				? 'Saved · ' + ago + 's ago'
+				: 'Saved · ' + Math.floor(ago / 60) + 'm ago';
+		// Orange when there are unsaved strokes AND the last save was ≥10s ago.
+		// Captures the case where the autosave debounce keeps getting reset
+		// by continuous drawing — the user has live work-at-risk.
+		if (typeof _canvasDirty !== 'undefined' && _canvasDirty && ago >= 10) {
+			this.saveStatus.classList.add('is-stale');
+			label = 'Unsaved changes — ' + label.replace(/^Saved /, '');
+		} else {
+			this.saveStatus.classList.add('is-saved');
+		}
+		setLabel(label);
 	},
 
 	syncSize: function()
@@ -7569,9 +7679,190 @@ function clampPan()
 	panY = Math.min(maxPanY, Math.max(minPanY, panY));
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Canvas persistence — IndexedDB.
+//
+// The previous implementation wrote a base64 dataURL into localStorage. That
+// has a ~5 MB UTF-16 quota that quietly trips on detailed HiDPI canvases,
+// silently dropping autosaves and losing user work on refresh. IDB stores
+// raw Blob bytes, has gigabyte-class quotas, and writes asynchronously so
+// the encode never blocks the paint loop.
+//
+// Public surface:
+//   saveCanvas()  → Promise<string>          fire-and-forget write
+//   loadCanvas()  → Promise<Blob | null>     called once on init
+// ────────────────────────────────────────────────────────────────────────────
+
+var CANVAS_DB_NAME = 'harmony-canvas-db';
+var CANVAS_STORE   = 'canvas';
+var CANVAS_KEY     = 'current';
+var _canvasDBOpen  = null;
+var _canvasSaveInflight = false;
+var _canvasSaveQueued   = false;
+var _canvasDirty        = false;  // true when canvas has changes not yet persisted
+var _canvasQuotaWarned  = false;
+
+function openCanvasDB()
+{
+	if (_canvasDBOpen) return _canvasDBOpen;
+	_canvasDBOpen = new Promise(function(resolve, reject) {
+		if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+		var req = indexedDB.open(CANVAS_DB_NAME, 1);
+		req.onupgradeneeded = function() {
+			if (!req.result.objectStoreNames.contains(CANVAS_STORE)) {
+				req.result.createObjectStore(CANVAS_STORE);
+			}
+		};
+		req.onsuccess = function() { resolve(req.result); };
+		req.onerror   = function() { reject(req.error); };
+		req.onblocked = function() { reject(new Error('IDB blocked')); };
+	});
+	return _canvasDBOpen;
+}
+
+function idbPutCanvasBlob(blob)
+{
+	return openCanvasDB().then(function(db) {
+		return new Promise(function(resolve, reject) {
+			var tx = db.transaction(CANVAS_STORE, 'readwrite');
+			tx.objectStore(CANVAS_STORE).put(blob, CANVAS_KEY);
+			tx.oncomplete = function() { resolve(); };
+			tx.onerror    = function() { reject(tx.error); };
+			tx.onabort    = function() { reject(tx.error); };
+		});
+	});
+}
+
+function idbGetCanvasBlob()
+{
+	return openCanvasDB().then(function(db) {
+		return new Promise(function(resolve, reject) {
+			var tx  = db.transaction(CANVAS_STORE, 'readonly');
+			var req = tx.objectStore(CANVAS_STORE).get(CANVAS_KEY);
+			req.onsuccess = function() { resolve(req.result || null); };
+			req.onerror   = function() { reject(req.error); };
+		});
+	}).catch(function() { return null; });
+}
+
+function canvasToBlobAsync(canvasEl, type)
+{
+	return new Promise(function(resolve, reject) {
+		if (canvasEl.toBlob) {
+			canvasEl.toBlob(function(blob) {
+				if (blob) resolve(blob);
+				else      reject(new Error('toBlob produced null'));
+			}, type || 'image/png');
+		} else {
+			// Old Safari fallback — convert dataURL to Blob.
+			try {
+				var url = canvasEl.toDataURL(type || 'image/png');
+				fetch(url).then(function(r){ return r.blob(); }).then(resolve, reject);
+			} catch (e) { reject(e); }
+		}
+	});
+}
+
+// Save current canvas to IDB. Coalesces concurrent calls (a save in flight
+// suppresses further writes; one trailing save fires after the in-flight
+// one resolves). Falls back to a 1× downscale on QuotaExceededError.
+function saveCanvas()
+{
+	// No-op if nothing's changed since the last successful save. Anything
+	// that mutates the canvas (stroke end, undo, redo, clear, upload) sets
+	// _canvasDirty = true and re-arms the autosave timer.
+	if (!_canvasDirty) return Promise.resolve('clean');
+	if (_canvasSaveInflight) { _canvasSaveQueued = true; return Promise.resolve('queued'); }
+	_canvasSaveInflight = true;
+	// Snapshot the current dirty epoch — if new strokes arrive during the
+	// async encode/write, they'll re-dirty the flag, and we'll keep it set
+	// so the next saveCanvas() actually runs instead of short-circuiting.
+	_canvasDirty = false;
+	var savingStart = Date.now();
+	if (menu && menu.setSaveStatus) menu.setSaveStatus('saving');
+
+	return canvasToBlobAsync(canvas, 'image/png')
+		.then(idbPutCanvasBlob)
+		.then(function() {
+			// Hold the 'saving' state on screen for at least this long so the
+			// blue pulse is actually visible even when IDB writes complete in
+			// a few ms.
+			var SAVING_MIN_MS = 450;
+			var remaining = Math.max(0, SAVING_MIN_MS - (Date.now() - savingStart));
+			return new Promise(function(r){ setTimeout(r, remaining); });
+		})
+		.then(function() {
+			_canvasSaveInflight = false;
+			if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
+			if (_canvasSaveQueued || _canvasDirty) { _canvasSaveQueued = false; saveCanvas(); }
+			return 'saved';
+		})
+		.catch(function(err) {
+			_canvasSaveInflight = false;
+			_canvasDirty = true;  // failed write — keep it dirty so we retry
+			var quota = err && (err.name === 'QuotaExceededError' ||
+			                    /quota/i.test(String(err && err.message)));
+			if (quota) {
+				return saveCanvasDownscaled().then(function() {
+					_canvasDirty = false;  // downscale path succeeded
+					if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
+					if (!_canvasQuotaWarned && menu && menu.showToast) {
+						_canvasQuotaWarned = true;
+						menu.showToast('Canvas large — saved at lower resolution');
+					}
+					return 'downscaled';
+				}).catch(function(e2) {
+					if (menu && menu.setSaveStatus) menu.setSaveStatus('error');
+					throw e2;
+				});
+			}
+			console.warn('[harmony] saveCanvas failed:', err);
+			if (menu && menu.setSaveStatus) menu.setSaveStatus('error');
+			throw err;
+		});
+}
+
+function saveCanvasDownscaled()
+{
+	var w = Math.max(1, canvas.width  / PIXEL_RATIO);
+	var h = Math.max(1, canvas.height / PIXEL_RATIO);
+	var tmp = document.createElement('canvas');
+	tmp.width = w; tmp.height = h;
+	tmp.getContext('2d').drawImage(canvas, 0, 0, w, h);
+	return canvasToBlobAsync(tmp, 'image/png').then(idbPutCanvasBlob);
+}
+
+function loadCanvas()
+{
+	return idbGetCanvasBlob();
+}
+
+// One-time migration of any legacy localStorage dataURL into IDB.
+// Runs async on startup; clears the old key once IDB has a copy.
+function migrateLegacyCanvasIfNeeded()
+{
+	var legacy;
+	try { legacy = localStorage.getItem('harmony-canvas'); } catch (e) { return Promise.resolve(false); }
+	if (!legacy) return Promise.resolve(false);
+
+	return idbGetCanvasBlob().then(function(existing) {
+		if (existing) {
+			// IDB already has fresher data — drop the legacy copy.
+			try { localStorage.removeItem('harmony-canvas'); } catch (e) {}
+			return false;
+		}
+		return fetch(legacy).then(function(r){ return r.blob(); })
+			.then(idbPutCanvasBlob)
+			.then(function() {
+				try { localStorage.removeItem('harmony-canvas'); } catch (e) {}
+				return true;
+			});
+	}).catch(function() { return false; });
+}
+
 function init()
 {
-	var hash, palette, embed, localStorageImage;
+	var hash, palette, embed;
 
 	if (USER_AGENT.search("android") > -1 || USER_AGENT.search("iphone") > -1)
 		BRUSH_SIZE = 2;
@@ -7657,8 +7948,6 @@ function init()
 	menu.secondaryColor.addEventListener('touchend', onMenuSecondaryColor, false);
 	menu.selector.addEventListener('change', onMenuSelectorChange, false);
 	menu.symmetrySelector.addEventListener('change', onMenuSymmetryChange, false);
-	menu.save.addEventListener('click', onMenuSave, false);
-	menu.save.addEventListener('touchend', onMenuSave, false);
 	menu.download.addEventListener('click', onMenuDownload, false);
 	menu.download.addEventListener('touchend', onMenuDownload, false);
 	menu.rec.addEventListener('click', gifToggleRecording, false);
@@ -7686,21 +7975,35 @@ function init()
 
 	if (STORAGE)
 	{
-		if (localStorage['harmony-canvas'])
-		{
-			localStorageImage = new Image();
-
-			localStorageImage.addEventListener("load", function(event)
-			{
-				localStorageImage.removeEventListener(event.type, arguments.callee, false);
+		// Async canvas load via IndexedDB (with one-time migration from the
+		// legacy localStorage dataURL if present).
+		loadCanvas().then(function(blob) {
+			if (blob) return blob;
+			return migrateLegacyCanvasIfNeeded().then(loadCanvas);
+		}).then(function(blob) {
+			if (!blob) return;
+			var url = URL.createObjectURL(blob);
+			var img = new Image();
+			img.onload = function() {
+				URL.revokeObjectURL(url);
 				context.restore();
-				context.drawImage(localStorageImage,0,0);
+				context.drawImage(img, 0, 0);
 				context.scale(PIXEL_RATIO, PIXEL_RATIO);
 				saveToHistory();
-			}, false);
-
-			localStorageImage.src = localStorage['harmony-canvas'];
-		}
+				// Restored from disk — surface it on the pip so the user
+				// knows existing work is persisted.
+				if (menu && menu.setSaveStatus) {
+					menu._saveStatusLastSavedAt = Date.now();
+					menu.setSaveStatus('tick');
+				}
+			};
+			img.onerror = function() { URL.revokeObjectURL(url); };
+			img.src = url;
+		}).catch(function(err) {
+			console.warn('[harmony] loadCanvas failed:', err);
+		});
+	} else if (menu && menu.setSaveStatus) {
+		menu.setSaveStatus('unavailable');
 
 		if (localStorage['harmony-color'])
 		{
@@ -7816,6 +8119,12 @@ function init()
 	saveToHistory();
 
 	initCursorRing();
+
+	// Tick the save-status pip so "Saved · 5s ago" keeps current without
+	// re-rendering the rest of the toolbar.
+	setInterval(function() {
+		if (menu && menu.setSaveStatus) menu.setSaveStatus('tick');
+	}, 5000);
 }
 
 // CURSOR RING — visual feedback for current brush size
@@ -8278,19 +8587,6 @@ function onMenuMouseOver()
 function onMenuMouseOut()
 {
 	isMenuMouseOver = false;
-}
-
-function onMenuSave()
-{
-	if (STORAGE)
-	{
-		saveToLocalStorage();
-		if (menu) menu.showToast('Saved');
-	}
-	else if (menu)
-	{
-		menu.showToast('Local storage unavailable');
-	}
 }
 
 function onMenuDownload()
@@ -8885,7 +9181,8 @@ function onMenuUpload()
 				context.drawImage(image, 0, 0);
 				context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
 
-				saveToLocalStorage();
+				_canvasDirty = true;
+				saveCanvas();
 
 				if (savedHistory && savedHistory.length > 0)
 				{
@@ -8954,7 +9251,8 @@ function _doClearCanvas()
 {
 	context.clearRect(0, 0, SCREEN_WIDTH * PIXEL_RATIO, SCREEN_HEIGHT * PIXEL_RATIO);
 
-	saveToLocalStorage();
+	_canvasDirty = true;
+	saveCanvas();
 	saveToHistory();
 
 	brush.destroy();
@@ -9076,12 +9374,13 @@ function onCanvasMouseUp()
 		if (gifIsRecording) gifRecordFrame();
 		saveToHistory();
 		recentPush(COLOR);
-	}
 
-	if (STORAGE)
-	{
-		clearTimeout(saveTimeOut);
-		saveTimeOut = setTimeout(saveToLocalStorage, 2000, true);
+		if (STORAGE)
+		{
+			_canvasDirty = true;
+			clearTimeout(saveTimeOut);
+			saveTimeOut = setTimeout(saveCanvas, 2000);
+		}
 	}
 }
 
@@ -9373,7 +9672,8 @@ function onMenuUndo()
 	historyIndex--;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	pendingBrushTrim = brushHistory[historyIndex] || null;
-	saveToLocalStorage();
+	_canvasDirty = true;
+	saveCanvas();
 	if (gifIsRecording) gifRecordFrame();
 }
 
@@ -9385,13 +9685,9 @@ function onMenuRedo()
 	historyIndex++;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	pendingBrushTrim = brushHistory[historyIndex] || null;
-	saveToLocalStorage();
+	_canvasDirty = true;
+	saveCanvas();
 	if (gifIsRecording) gifRecordFrame();
-}
-
-function saveToLocalStorage()
-{
-	localStorage['harmony-canvas'] = canvas.toDataURL('image/png');
 }
 
 function flatten()
