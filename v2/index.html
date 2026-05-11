@@ -7470,10 +7470,11 @@ function recentBrushesPush(name)
 	try { localStorage.setItem(RECENT_BRUSHES_KEY, JSON.stringify(arr)); } catch (e) {}
 }
 const USER_AGENT = navigator.userAgent.toLowerCase();
+const CLASSIC_MODE = /[?&]classic=1\b/.test(window.location.search);
 
 var SCREEN_WIDTH = window.innerWidth,
     SCREEN_HEIGHT = window.innerHeight,
-    PIXEL_RATIO = Math.max( 1, window.devicePixelRatio ),
+    PIXEL_RATIO = CLASSIC_MODE ? 1 : Math.max( 1, window.devicePixelRatio ),
     BRUSH_SIZE = 1,
     BRUSH_PRESSURE = 1,
     BRUSH_OPACITY = 1,
@@ -7595,6 +7596,18 @@ function init()
 	 *
 	 * wacom = document.embeds["wacom-plugin"];
 	 */
+
+	if (CLASSIC_MODE) {
+		document.title = 'Harmony — classic (1×)';
+		var badge = document.createElement('div');
+		badge.textContent = 'CLASSIC · 1× backing';
+		badge.style.cssText =
+			'position:fixed;left:10px;bottom:10px;z-index:9999;' +
+			'background:rgba(20,22,28,0.78);color:#fff;font-family:var(--ui,sans-serif);' +
+			'font-size:11px;letter-spacing:0.08em;font-weight:600;' +
+			'padding:6px 10px;border-radius:999px;pointer-events:none;';
+		document.body.appendChild(badge);
+	}
 
 	canvas = document.createElement("canvas");
 	canvas.width = SCREEN_WIDTH * PIXEL_RATIO;
