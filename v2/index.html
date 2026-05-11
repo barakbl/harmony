@@ -396,6 +396,40 @@
 				pointer-events: none;
 			}
 
+			/* ─── Save status pip (autosave indicator) ────────────────── */
+			.save-status {
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+				height: 28px;
+				padding: 0 10px;
+				border-radius: 999px;
+				font-family: var(--ui);
+				font-size: 11px;
+				color: var(--ink-mute);
+				white-space: nowrap;
+				font-variant-numeric: tabular-nums;
+				transition: color 200ms ease;
+			}
+			.save-status .ss-dot {
+				width: 7px; height: 7px; border-radius: 50%;
+				background: rgba(20,22,28,0.25);
+				transition: background 200ms ease, transform 200ms ease;
+			}
+			.save-status.is-saved .ss-dot { background: #2db96b; }
+			.save-status.is-saving .ss-dot {
+				background: #6aa3ff;
+				animation: ss-pulse 1.1s ease-in-out infinite;
+			}
+			.save-status.is-error .ss-dot { background: var(--accent); }
+			.save-status.is-error .ss-text { color: var(--accent); font-weight: 600; }
+			.save-status.is-unavailable .ss-dot { background: #c9a23a; }
+			@keyframes ss-pulse {
+				0%, 100% { transform: scale(1);   opacity: 1; }
+				50%      { transform: scale(0.6); opacity: 0.45; }
+			}
+			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.25); }
+
 			/* ─── Zoom indicator ──────────────────────────────────────── */
 			.zoom-pill {
 				display: inline-flex;
@@ -6017,7 +6051,7 @@ Menu.prototype =
 	sizeSlider: null,
 	sizeLabel: null,
 	symmetrySelector: null,
-	save: null,
+	saveStatus: null,
 	download: null,
 	rec: null,
 	gif: null,
@@ -6219,11 +6253,20 @@ Menu.prototype =
 
 		this.container.appendChild(divider());
 
-		// ─ Group: Files (Save lives on the toolbar; Record / Export GIF move to the More menu) ─
-		var gFiles = group();
-		this.save     = iconBtn(ICON.save,     'Save');
-		gFiles.appendChild(this.save);
-		this.container.appendChild(gFiles);
+		// ─ Group: Save status (passive autosave indicator) ─
+		var gSave = group();
+		this.saveStatus = document.createElement('div');
+		this.saveStatus.className = 'save-status';
+		this.saveStatus.title = 'Autosaves to browser storage';
+		var ssDot = document.createElement('span');
+		ssDot.className = 'ss-dot';
+		var ssText = document.createElement('span');
+		ssText.className = 'ss-text';
+		this.saveStatus.appendChild(ssDot);
+		this.saveStatus.appendChild(ssText);
+		gSave.appendChild(this.saveStatus);
+		this.container.appendChild(gSave);
+		this._saveStatusLastSavedAt = 0;
 
 		// Build wide rows for the overflow panel
 		this.download     = rowBtn(ICON.download, 'Download',      'Save image as SVG');
@@ -6748,6 +6791,46 @@ Menu.prototype =
 		this._toastTimer = setTimeout(function() {
 			scope.toastEl.classList.remove('show');
 		}, 1500);
+	},
+
+	setSaveStatus: function(state)
+	{
+		// state: 'saving' | 'saved' | 'error' | 'unavailable' | 'tick'
+		// 'tick' just refreshes the relative-time text without changing state.
+		if (!this.saveStatus) return;
+		var txt = this.saveStatus.querySelector('.ss-text');
+
+		this.saveStatus.classList.remove('is-saving', 'is-saved', 'is-error', 'is-unavailable');
+
+		if (state === 'saving') {
+			this.saveStatus.classList.add('is-saving');
+			txt.textContent = 'Saving…';
+			return;
+		}
+		if (state === 'error') {
+			this.saveStatus.classList.add('is-error');
+			txt.textContent = "Can't save";
+			return;
+		}
+		if (state === 'unavailable') {
+			this.saveStatus.classList.add('is-unavailable');
+			txt.textContent = 'Storage off';
+			return;
+		}
+		if (state === 'saved') {
+			this._saveStatusLastSavedAt = Date.now();
+		}
+		if (!this._saveStatusLastSavedAt) {
+			txt.textContent = '';
+			return;
+		}
+		this.saveStatus.classList.add('is-saved');
+		var ago = Math.floor((Date.now() - this._saveStatusLastSavedAt) / 1000);
+		txt.textContent = ago < 4
+			? 'Saved'
+			: ago < 60
+				? 'Saved · ' + ago + 's ago'
+				: 'Saved · ' + Math.floor(ago / 60) + 'm ago';
 	},
 
 	syncSize: function()
@@ -7659,11 +7742,13 @@ function saveCanvas()
 {
 	if (_canvasSaveInflight) { _canvasSaveQueued = true; return Promise.resolve('queued'); }
 	_canvasSaveInflight = true;
+	if (menu && menu.setSaveStatus) menu.setSaveStatus('saving');
 
 	return canvasToBlobAsync(canvas, 'image/png')
 		.then(idbPutCanvasBlob)
 		.then(function() {
 			_canvasSaveInflight = false;
+			if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
 			if (_canvasSaveQueued) { _canvasSaveQueued = false; saveCanvas(); }
 			return 'saved';
 		})
@@ -7672,21 +7757,20 @@ function saveCanvas()
 			var quota = err && (err.name === 'QuotaExceededError' ||
 			                    /quota/i.test(String(err && err.message)));
 			if (quota) {
-				// Downscale to 1× and try once more so the user still gets a
-				// (lower-fidelity) recovery snapshot rather than nothing.
 				return saveCanvasDownscaled().then(function() {
+					if (menu && menu.setSaveStatus) menu.setSaveStatus('saved');
 					if (!_canvasQuotaWarned && menu && menu.showToast) {
 						_canvasQuotaWarned = true;
 						menu.showToast('Canvas large — saved at lower resolution');
 					}
 					return 'downscaled';
 				}).catch(function(e2) {
-					if (menu && menu.showToast) menu.showToast('Save failed — please download');
+					if (menu && menu.setSaveStatus) menu.setSaveStatus('error');
 					throw e2;
 				});
 			}
 			console.warn('[harmony] saveCanvas failed:', err);
-			if (menu && menu.showToast) menu.showToast('Save failed — please download');
+			if (menu && menu.setSaveStatus) menu.setSaveStatus('error');
 			throw err;
 		});
 }
@@ -7817,8 +7901,6 @@ function init()
 	menu.secondaryColor.addEventListener('touchend', onMenuSecondaryColor, false);
 	menu.selector.addEventListener('change', onMenuSelectorChange, false);
 	menu.symmetrySelector.addEventListener('change', onMenuSymmetryChange, false);
-	menu.save.addEventListener('click', onMenuSave, false);
-	menu.save.addEventListener('touchend', onMenuSave, false);
 	menu.download.addEventListener('click', onMenuDownload, false);
 	menu.download.addEventListener('touchend', onMenuDownload, false);
 	menu.rec.addEventListener('click', gifToggleRecording, false);
@@ -7861,12 +7943,20 @@ function init()
 				context.drawImage(img, 0, 0);
 				context.scale(PIXEL_RATIO, PIXEL_RATIO);
 				saveToHistory();
+				// Restored from disk — surface it on the pip so the user
+				// knows existing work is persisted.
+				if (menu && menu.setSaveStatus) {
+					menu._saveStatusLastSavedAt = Date.now();
+					menu.setSaveStatus('tick');
+				}
 			};
 			img.onerror = function() { URL.revokeObjectURL(url); };
 			img.src = url;
 		}).catch(function(err) {
 			console.warn('[harmony] loadCanvas failed:', err);
 		});
+	} else if (menu && menu.setSaveStatus) {
+		menu.setSaveStatus('unavailable');
 
 		if (localStorage['harmony-color'])
 		{
@@ -7982,6 +8072,12 @@ function init()
 	saveToHistory();
 
 	initCursorRing();
+
+	// Tick the save-status pip so "Saved · 5s ago" keeps current without
+	// re-rendering the rest of the toolbar.
+	setInterval(function() {
+		if (menu && menu.setSaveStatus) menu.setSaveStatus('tick');
+	}, 5000);
 }
 
 // CURSOR RING — visual feedback for current brush size
@@ -8444,22 +8540,6 @@ function onMenuMouseOver()
 function onMenuMouseOut()
 {
 	isMenuMouseOver = false;
-}
-
-function onMenuSave()
-{
-	if (STORAGE)
-	{
-		saveCanvas().then(function(result) {
-			if (!menu) return;
-			if (result === 'downscaled') return; // its own toast already shown
-			menu.showToast('Saved');
-		}).catch(function() { /* toast already shown by saveCanvas */ });
-	}
-	else if (menu)
-	{
-		menu.showToast('Local storage unavailable');
-	}
 }
 
 function onMenuDownload()
