@@ -7569,9 +7569,169 @@ function clampPan()
 	panY = Math.min(maxPanY, Math.max(minPanY, panY));
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Canvas persistence — IndexedDB.
+//
+// The previous implementation wrote a base64 dataURL into localStorage. That
+// has a ~5 MB UTF-16 quota that quietly trips on detailed HiDPI canvases,
+// silently dropping autosaves and losing user work on refresh. IDB stores
+// raw Blob bytes, has gigabyte-class quotas, and writes asynchronously so
+// the encode never blocks the paint loop.
+//
+// Public surface:
+//   saveCanvas()  → Promise<string>          fire-and-forget write
+//   loadCanvas()  → Promise<Blob | null>     called once on init
+// ────────────────────────────────────────────────────────────────────────────
+
+var CANVAS_DB_NAME = 'harmony-canvas-db';
+var CANVAS_STORE   = 'canvas';
+var CANVAS_KEY     = 'current';
+var _canvasDBOpen  = null;
+var _canvasSaveInflight = false;
+var _canvasSaveQueued   = false;
+var _canvasQuotaWarned  = false;
+
+function openCanvasDB()
+{
+	if (_canvasDBOpen) return _canvasDBOpen;
+	_canvasDBOpen = new Promise(function(resolve, reject) {
+		if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+		var req = indexedDB.open(CANVAS_DB_NAME, 1);
+		req.onupgradeneeded = function() {
+			if (!req.result.objectStoreNames.contains(CANVAS_STORE)) {
+				req.result.createObjectStore(CANVAS_STORE);
+			}
+		};
+		req.onsuccess = function() { resolve(req.result); };
+		req.onerror   = function() { reject(req.error); };
+		req.onblocked = function() { reject(new Error('IDB blocked')); };
+	});
+	return _canvasDBOpen;
+}
+
+function idbPutCanvasBlob(blob)
+{
+	return openCanvasDB().then(function(db) {
+		return new Promise(function(resolve, reject) {
+			var tx = db.transaction(CANVAS_STORE, 'readwrite');
+			tx.objectStore(CANVAS_STORE).put(blob, CANVAS_KEY);
+			tx.oncomplete = function() { resolve(); };
+			tx.onerror    = function() { reject(tx.error); };
+			tx.onabort    = function() { reject(tx.error); };
+		});
+	});
+}
+
+function idbGetCanvasBlob()
+{
+	return openCanvasDB().then(function(db) {
+		return new Promise(function(resolve, reject) {
+			var tx  = db.transaction(CANVAS_STORE, 'readonly');
+			var req = tx.objectStore(CANVAS_STORE).get(CANVAS_KEY);
+			req.onsuccess = function() { resolve(req.result || null); };
+			req.onerror   = function() { reject(req.error); };
+		});
+	}).catch(function() { return null; });
+}
+
+function canvasToBlobAsync(canvasEl, type)
+{
+	return new Promise(function(resolve, reject) {
+		if (canvasEl.toBlob) {
+			canvasEl.toBlob(function(blob) {
+				if (blob) resolve(blob);
+				else      reject(new Error('toBlob produced null'));
+			}, type || 'image/png');
+		} else {
+			// Old Safari fallback — convert dataURL to Blob.
+			try {
+				var url = canvasEl.toDataURL(type || 'image/png');
+				fetch(url).then(function(r){ return r.blob(); }).then(resolve, reject);
+			} catch (e) { reject(e); }
+		}
+	});
+}
+
+// Save current canvas to IDB. Coalesces concurrent calls (a save in flight
+// suppresses further writes; one trailing save fires after the in-flight
+// one resolves). Falls back to a 1× downscale on QuotaExceededError.
+function saveCanvas()
+{
+	if (_canvasSaveInflight) { _canvasSaveQueued = true; return Promise.resolve('queued'); }
+	_canvasSaveInflight = true;
+
+	return canvasToBlobAsync(canvas, 'image/png')
+		.then(idbPutCanvasBlob)
+		.then(function() {
+			_canvasSaveInflight = false;
+			if (_canvasSaveQueued) { _canvasSaveQueued = false; saveCanvas(); }
+			return 'saved';
+		})
+		.catch(function(err) {
+			_canvasSaveInflight = false;
+			var quota = err && (err.name === 'QuotaExceededError' ||
+			                    /quota/i.test(String(err && err.message)));
+			if (quota) {
+				// Downscale to 1× and try once more so the user still gets a
+				// (lower-fidelity) recovery snapshot rather than nothing.
+				return saveCanvasDownscaled().then(function() {
+					if (!_canvasQuotaWarned && menu && menu.showToast) {
+						_canvasQuotaWarned = true;
+						menu.showToast('Canvas large — saved at lower resolution');
+					}
+					return 'downscaled';
+				}).catch(function(e2) {
+					if (menu && menu.showToast) menu.showToast('Save failed — please download');
+					throw e2;
+				});
+			}
+			console.warn('[harmony] saveCanvas failed:', err);
+			if (menu && menu.showToast) menu.showToast('Save failed — please download');
+			throw err;
+		});
+}
+
+function saveCanvasDownscaled()
+{
+	var w = Math.max(1, canvas.width  / PIXEL_RATIO);
+	var h = Math.max(1, canvas.height / PIXEL_RATIO);
+	var tmp = document.createElement('canvas');
+	tmp.width = w; tmp.height = h;
+	tmp.getContext('2d').drawImage(canvas, 0, 0, w, h);
+	return canvasToBlobAsync(tmp, 'image/png').then(idbPutCanvasBlob);
+}
+
+function loadCanvas()
+{
+	return idbGetCanvasBlob();
+}
+
+// One-time migration of any legacy localStorage dataURL into IDB.
+// Runs async on startup; clears the old key once IDB has a copy.
+function migrateLegacyCanvasIfNeeded()
+{
+	var legacy;
+	try { legacy = localStorage.getItem('harmony-canvas'); } catch (e) { return Promise.resolve(false); }
+	if (!legacy) return Promise.resolve(false);
+
+	return idbGetCanvasBlob().then(function(existing) {
+		if (existing) {
+			// IDB already has fresher data — drop the legacy copy.
+			try { localStorage.removeItem('harmony-canvas'); } catch (e) {}
+			return false;
+		}
+		return fetch(legacy).then(function(r){ return r.blob(); })
+			.then(idbPutCanvasBlob)
+			.then(function() {
+				try { localStorage.removeItem('harmony-canvas'); } catch (e) {}
+				return true;
+			});
+	}).catch(function() { return false; });
+}
+
 function init()
 {
-	var hash, palette, embed, localStorageImage;
+	var hash, palette, embed;
 
 	if (USER_AGENT.search("android") > -1 || USER_AGENT.search("iphone") > -1)
 		BRUSH_SIZE = 2;
@@ -7686,21 +7846,27 @@ function init()
 
 	if (STORAGE)
 	{
-		if (localStorage['harmony-canvas'])
-		{
-			localStorageImage = new Image();
-
-			localStorageImage.addEventListener("load", function(event)
-			{
-				localStorageImage.removeEventListener(event.type, arguments.callee, false);
+		// Async canvas load via IndexedDB (with one-time migration from the
+		// legacy localStorage dataURL if present).
+		loadCanvas().then(function(blob) {
+			if (blob) return blob;
+			return migrateLegacyCanvasIfNeeded().then(loadCanvas);
+		}).then(function(blob) {
+			if (!blob) return;
+			var url = URL.createObjectURL(blob);
+			var img = new Image();
+			img.onload = function() {
+				URL.revokeObjectURL(url);
 				context.restore();
-				context.drawImage(localStorageImage,0,0);
+				context.drawImage(img, 0, 0);
 				context.scale(PIXEL_RATIO, PIXEL_RATIO);
 				saveToHistory();
-			}, false);
-
-			localStorageImage.src = localStorage['harmony-canvas'];
-		}
+			};
+			img.onerror = function() { URL.revokeObjectURL(url); };
+			img.src = url;
+		}).catch(function(err) {
+			console.warn('[harmony] loadCanvas failed:', err);
+		});
 
 		if (localStorage['harmony-color'])
 		{
@@ -8284,8 +8450,11 @@ function onMenuSave()
 {
 	if (STORAGE)
 	{
-		saveToLocalStorage();
-		if (menu) menu.showToast('Saved');
+		saveCanvas().then(function(result) {
+			if (!menu) return;
+			if (result === 'downscaled') return; // its own toast already shown
+			menu.showToast('Saved');
+		}).catch(function() { /* toast already shown by saveCanvas */ });
 	}
 	else if (menu)
 	{
@@ -8885,7 +9054,7 @@ function onMenuUpload()
 				context.drawImage(image, 0, 0);
 				context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
 
-				saveToLocalStorage();
+				saveCanvas();
 
 				if (savedHistory && savedHistory.length > 0)
 				{
@@ -8954,7 +9123,7 @@ function _doClearCanvas()
 {
 	context.clearRect(0, 0, SCREEN_WIDTH * PIXEL_RATIO, SCREEN_HEIGHT * PIXEL_RATIO);
 
-	saveToLocalStorage();
+	saveCanvas();
 	saveToHistory();
 
 	brush.destroy();
@@ -9081,7 +9250,7 @@ function onCanvasMouseUp()
 	if (STORAGE)
 	{
 		clearTimeout(saveTimeOut);
-		saveTimeOut = setTimeout(saveToLocalStorage, 2000, true);
+		saveTimeOut = setTimeout(saveCanvas, 2000);
 	}
 }
 
@@ -9373,7 +9542,7 @@ function onMenuUndo()
 	historyIndex--;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	pendingBrushTrim = brushHistory[historyIndex] || null;
-	saveToLocalStorage();
+	saveCanvas();
 	if (gifIsRecording) gifRecordFrame();
 }
 
@@ -9385,13 +9554,8 @@ function onMenuRedo()
 	historyIndex++;
 	context.putImageData(undoHistory[historyIndex], 0, 0);
 	pendingBrushTrim = brushHistory[historyIndex] || null;
-	saveToLocalStorage();
+	saveCanvas();
 	if (gifIsRecording) gifRecordFrame();
-}
-
-function saveToLocalStorage()
-{
-	localStorage['harmony-canvas'] = canvas.toDataURL('image/png');
 }
 
 function flatten()
