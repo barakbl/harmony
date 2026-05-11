@@ -9374,13 +9374,13 @@ function onCanvasMouseUp()
 		if (gifIsRecording) gifRecordFrame();
 		saveToHistory();
 		recentPush(COLOR);
-	}
 
-	if (STORAGE)
-	{
-		_canvasDirty = true;
-		clearTimeout(saveTimeOut);
-		saveTimeOut = setTimeout(saveCanvas, 2000);
+		if (STORAGE)
+		{
+			_canvasDirty = true;
+			clearTimeout(saveTimeOut);
+			saveTimeOut = setTimeout(saveCanvas, 2000);
+		}
 	}
 }
 
