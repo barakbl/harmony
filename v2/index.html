@@ -8660,7 +8660,7 @@ function onMenuDownload( format )
 	var pad = function(n) { return n.toString().padStart(2, '0'); };
 	var dateStr = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
 	var timeStr = pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
-	a.download = 'harmony_' + dateStr + '_' + timeStr + '.svg.harmony';
+	a.download = 'harmony_' + dateStr + '_' + timeStr + '.harmony';
 	a.click();
 
 	URL.revokeObjectURL(url);
