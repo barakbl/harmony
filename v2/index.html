@@ -400,21 +400,23 @@
 			.save-status {
 				display: inline-flex;
 				align-items: center;
-				gap: 7px;
+				justify-content: center;
+				width: 28px;
 				height: 28px;
-				padding: 0 10px;
-				border-radius: 999px;
-				font-family: var(--ui);
-				font-size: 11px;
-				color: var(--ink-mute);
-				white-space: nowrap;
-				font-variant-numeric: tabular-nums;
-				transition: color 200ms ease;
+				cursor: default;
 			}
 			.save-status .ss-dot {
-				width: 7px; height: 7px; border-radius: 50%;
+				width: 9px; height: 9px; border-radius: 50%;
 				background: rgba(20,22,28,0.25);
 				transition: background 200ms ease, transform 200ms ease;
+			}
+			/* Visually hide the label but keep it for screen readers. */
+			.save-status .ss-text {
+				position: absolute;
+				width: 1px; height: 1px;
+				padding: 0; margin: -1px;
+				overflow: hidden; clip: rect(0,0,0,0);
+				white-space: nowrap; border: 0;
 			}
 			.save-status.is-saved .ss-dot { background: #2db96b; }
 			.save-status.is-saving .ss-dot {
@@ -422,11 +424,10 @@
 				animation: ss-pulse 1.1s ease-in-out infinite;
 			}
 			.save-status.is-error .ss-dot { background: var(--accent); }
-			.save-status.is-error .ss-text { color: var(--accent); font-weight: 600; }
 			.save-status.is-unavailable .ss-dot { background: #c9a23a; }
 			@keyframes ss-pulse {
 				0%, 100% { transform: scale(1);   opacity: 1; }
-				50%      { transform: scale(0.6); opacity: 0.45; }
+				50%      { transform: scale(0.55); opacity: 0.45; }
 			}
 			.theme-dark .save-status .ss-dot { background: rgba(255,255,255,0.25); }
 
@@ -6257,7 +6258,8 @@ Menu.prototype =
 		var gSave = group();
 		this.saveStatus = document.createElement('div');
 		this.saveStatus.className = 'save-status';
-		this.saveStatus.title = 'Autosaves to browser storage';
+		this.saveStatus.setAttribute('role', 'status');
+		this.saveStatus.setAttribute('aria-live', 'polite');
 		var ssDot = document.createElement('span');
 		ssDot.className = 'ss-dot';
 		var ssText = document.createElement('span');
@@ -6796,41 +6798,46 @@ Menu.prototype =
 	setSaveStatus: function(state)
 	{
 		// state: 'saving' | 'saved' | 'error' | 'unavailable' | 'tick'
-		// 'tick' just refreshes the relative-time text without changing state.
+		// 'tick' just refreshes the relative-time tooltip without changing state.
 		if (!this.saveStatus) return;
 		var txt = this.saveStatus.querySelector('.ss-text');
+
+		var setLabel = function(label) {
+			txt.textContent = label;
+			this.saveStatus.title = label;
+		}.bind(this);
 
 		this.saveStatus.classList.remove('is-saving', 'is-saved', 'is-error', 'is-unavailable');
 
 		if (state === 'saving') {
 			this.saveStatus.classList.add('is-saving');
-			txt.textContent = 'Saving…';
+			setLabel('Saving…');
 			return;
 		}
 		if (state === 'error') {
 			this.saveStatus.classList.add('is-error');
-			txt.textContent = "Can't save";
+			setLabel("Can't save — please download");
 			return;
 		}
 		if (state === 'unavailable') {
 			this.saveStatus.classList.add('is-unavailable');
-			txt.textContent = 'Storage off';
+			setLabel('Browser storage unavailable');
 			return;
 		}
 		if (state === 'saved') {
 			this._saveStatusLastSavedAt = Date.now();
 		}
 		if (!this._saveStatusLastSavedAt) {
-			txt.textContent = '';
+			setLabel('Autosave');
 			return;
 		}
 		this.saveStatus.classList.add('is-saved');
 		var ago = Math.floor((Date.now() - this._saveStatusLastSavedAt) / 1000);
-		txt.textContent = ago < 4
-			? 'Saved'
+		setLabel(ago < 4
+			? 'Saved just now'
 			: ago < 60
 				? 'Saved · ' + ago + 's ago'
-				: 'Saved · ' + Math.floor(ago / 60) + 'm ago';
+				: 'Saved · ' + Math.floor(ago / 60) + 'm ago');
 	},
 
 	syncSize: function()
