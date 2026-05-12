@@ -1,0 +1,133 @@
+* rev. 15 - 2026 05 12 (v3)
+
+- Vector action history: every stroke is recorded as {brush, color, size, opacity, symmetry, seed, points: [{x,y,p,tx,ty}], settings} instead of a raster snapshot. Typical sessions are KB instead of MB; autosave quota is no longer a concern.
+- Deterministic brushes: introduced a seeded mulberry32 PRNG (`_r()`) that all 50+ brushes use in place of `Math.random()`. Each stroke records its seed; replay re-runs the exact RNG stream → pixel-perfect reproduction.
+- Save format: `.harmony` files are now JSON (`format: "harmony-v3"`), not SVG-wrapping a PNG. Open from v3 → restores full action history (granular undo / GIF export / future-proof).
+- Undo / redo: `HISTORY_MAX` raised from 30 to 1000. Undo rewinds the action index and re-replays the canvas; brush state (sketchy connecting lines etc.) is properly reset.
+- GIF export reads from the action log instead of the raster history — same one frame per stroke, but no raster history needed.
+- Removed the "Lossless (PNG)" toggle in the overflow menu; vector replay is always lossless.
+- Tests: `node v3/smoke-test.js` extends v2's brush-settings consistency checks with v3 determinism, seed-sensitivity, brush op-stream replay equality (splatter / sketchy / stipple / crayon / watercolor / chalk / circles), .harmony JSON round-trip, and an eraser→simple composite-op leak guard.
+
+* rev. 14 - 2026 05 09
+
+- Cursor brush-size ring: faint circle at the pointer matching BRUSH_SIZE × zoomLevel, hidden on touch / while drawing / over UI; updates on size and zoom changes
+- Recent colors row in the color picker: auto-managed list of the last 8 colors used to commit a stroke, persisted as `harmony-recent`
+- Hex code input under the color wheel: two-way edit (paste #abc / #abcdef to set the wheel; live updates show the current hex), with a copy-to-clipboard button
+- Symmetry guides: faint, non-printing rays drawn on a UI overlay canvas when symmetry > 1, redrawn on resize / mode change
+- Hold ⇧ for straight lines: while drawing, holding shift snaps the brush to one of 8 axes from the moment shift was first pressed; the shift color-wheel popup is suppressed mid-stroke to avoid the conflict
+- Toast feedback on 2-finger undo and 3-finger redo gestures
+- Auto dark UI via `prefers-color-scheme: dark` (toolbar, picker, overflow menu, modals, About)
+- Mobile-friendly toolbar layout: secondary actions (Opacity, Symmetry, Download, Upload, About) moved to a "More" (⋯) overflow menu that opens as a bottom sheet on phones / tablets and a popover on desktop. Toolbar squeezes its sliders, swatches and dividers further on small screens
+- Brush picker is now scrollable (max-height + smooth touch scrolling) and turns into a bottom sheet on mobile so users can reach the lower brushes one-handed; the picker shows a drag-grabber pill on mobile as a sheet affordance
+- Custom modal dialog replaces native confirm() / alert(): centered glass card with backdrop blur, danger styling for destructive actions, ESC / backdrop-click to dismiss, Enter to confirm. Used by canvas Clear and GIF export errors
+- Color-picker palette: swatch strip below the color wheel with a default set (black, white, gray, red, orange, yellow, green, teal, blue, purple, pink, brown). Tap a swatch to apply, "+" to save the current color, "edit" toggles per-swatch delete. Stored in localStorage as `harmony-palette`; the foreground and background pickers share the palette and stay in sync
+- Modernized UI: floating glass toolbar with icon buttons, custom sliders, and grouped sections
+- New brush picker: tile grid popover with brush previews, "NEW" badges, and brush groups (Classic / Geometric / Atmospheric / Studio / Tools)
+- Brush size slider in the toolbar (kept in sync with d / f keys)
+- 5 new brushes: Pixel, Oil, Crayon, Sparkle, Hatching (all with pressure / tilt support)
+- Save toast confirmation
+- Refined About panel with grouped shortcut reference
+- Tooltips on every toolbar button
+- iOS, iPad / Apple Pencil, mouse, and keyboard pathways preserved (Pointer Events + native <select> fallback)
+
+* rev. 13 - 2026 02 24
+
+- Pressure sensitivity for all 8 new brushes: Neon, Watercolor, Splatter, Calligraphy, Smoke, Stipple, Lightning, Chalk
+- Pen tilt support (BRUSH_TILT_X/Y): Calligraphy nib angle and Smoke drift follow pen lean; Chalk grain aligns with tilt
+- Canvas input migrated to Pointer Events API (pointerdown / pointermove / pointerup)
+- Fixed color wheel getting stuck on mouse click
+
+* rev. 12 - 2026 02 22
+
+- Added 8 new brushes: Neon, Watercolor, Splatter, Calligraphy, Smoke, Stipple, Lightning, Chalk
+- New brushes marked with red (new) label in the brush selector
+- About window: moved forked version credit (Barak Bloch) directly under the title
+- About window: Barak Bloch name is now a link to the GitHub fork
+
+* rev. 11 - 2026 02 19
+
+- Collapsible menu bar: click « to collapse to a compact pill, click ≡ to expand
+- Keyboard shortcut <H> to toggle menu collapse / expand
+- 3-finger swipe down anywhere on canvas to toggle menu collapse
+- Collapsed menu shows drag handle and brush selector for quick access
+- Collapsed/expanded state persisted across page reloads (localStorage)
+- Floating menu: draggable by ☰ handle, position preserved when collapsing
+- Pinch-to-zoom (up to 50x) and Ctrl+scroll zoom with zoom level indicator
+- Reset zoom button and <b> shortcut
+- Brush opacity slider
+- Eraser tool
+- Symmetry drawing mode (2 / 3 / 4 / 6 / 8 axes)
+- Date stamp appended to downloaded SVG filename
+- About window: added zoom and menu keyboard shortcuts
+- About window: added touch gestures reference (2-finger tap undo, 3-finger tap redo, pinch zoom, 3-finger swipe collapse)
+- About window: forked version credit (Barak Bloch)
+
+* rev. 10 - 2026 02 13
+
+- switch to one big file
+- added undu/redo
+- upload and download mechanizm
+
+* rev. 9 - 2025 02 27
+
+- Improved color selector.
+
+
+* rev. 8 - 2024 11 28
+
+- Fixed device pixel ratio implementation. (@yunap)
+
+
+* rev. 7 - 2023 05 08
+
+- Implemented device pixel ratio.
+
+
+* rev. 6 - 2010 04 12
+
+- Drawing gets saved on the browser so it can be continued later.
+  Chrome bug: http://code.google.com/p/chromium/issues/detail?id=26456
+  Safari disabled: Flags as unsecure to copy from localStorage to canvas :(
+
+
+* rev. 5 - 2010 04 08
+
+- <d> and <f> increase/decrease brush size
+
+
+* rev. 4 - 2010 04 01
+
+- Increase brush size for high dpi devices (Android / iPhone OS)
+- Optimised Color Wheel generation
+- Wacom pressure support
+
+
+* rev. 3 - 2010 03 30
+
+- Color selector code clean up
+- Color picker with <alt>
+- Confirmation box before clearing.
+
+
+* rev. 2 - 2010 03 25
+
+- Reworked event system
+- Optimised colour palette code
+- Fixed mobile support
+- 'Chrome' brush colour support
+- Resets brush with <r> (Thanks Klaus Lyngeled)
+- Removed undefined call when clearing canvas
+
+
+* rev. 1 - 2010 03 15
+
+- New menu style
+- Foreground and background colour selector with <shift> (Thanks David Lasnier)
+- Added 'Simple' brush
+- Brushes colour support
+- About popup
+
+
+* rev. 0 - 2010 03 08
+
+- First version
