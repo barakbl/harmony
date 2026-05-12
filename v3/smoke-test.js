@@ -474,7 +474,7 @@ function _hashSeed() {
 
 // ── 13. Recording/replay surface ────────────────────────────────────
 {
-	const expected = ['recordStrokeStart', 'recordPoint', 'recordStrokeEnd', 'recordClear', 'replayStroke', 'replayAll'];
+	const expected = ['recordStrokeStart', 'recordPoint', 'recordStrokeEnd', 'replayStroke', 'replayAll'];
 	for (const fn of expected) {
 		if (new RegExp(`function\\s+${fn}\\s*\\(`).test(html)) ok(`${fn}() defined`);
 		else fail(`${fn}() not defined`);
@@ -626,6 +626,144 @@ function _hashSeed() {
 			ok('loadActionsFromStorage has no TDZ-trapped const refs declared after init()');
 		} else {
 			fail('loadActionsFromStorage references consts declared after init(): ' + leaked.join('; '));
+		}
+	}
+}
+
+// ── Clear-canvas is destructive (wipes actions, no undo) ────────
+{
+	const doClearMatch = html.match(/function\s+_doClearCanvas\s*\([^)]*\)\s*\{([\s\S]*?)\n\}\n/);
+	if (!doClearMatch) {
+		fail('_doClearCanvas not found (clear-semantics check)');
+	} else {
+		const body = doClearMatch[1];
+		// Must zero the action log…
+		if (/actions\s*=\s*\[\s*\]/.test(body) && /actionIndex\s*=\s*-1/.test(body)) {
+			ok('_doClearCanvas resets actions to [] and actionIndex to -1 (destructive)');
+		} else {
+			fail('_doClearCanvas does not destructively reset the action log');
+		}
+		// …and must NOT call recordClear() (the old behaviour).
+		if (/recordClear\s*\(/.test(body)) {
+			fail('_doClearCanvas still calls recordClear() — clear is supposed to be destructive now');
+		} else {
+			ok('_doClearCanvas does not call recordClear() (deprecated)');
+		}
+	}
+	// recordClear() should not exist as a function anymore.
+	if (/function\s+recordClear\s*\(/.test(html)) {
+		fail('recordClear() function still defined — should be removed (clear is destructive)');
+	} else {
+		ok('recordClear() function removed');
+	}
+}
+
+// ── importActionsPayload refreshes the strokes panel ────────────
+{
+	const importMatch = html.match(/function\s+importActionsPayload\s*\([^)]*\)\s*\{([\s\S]*?)\n\}\n/);
+	if (!importMatch) {
+		fail('importActionsPayload not found');
+	} else {
+		const body = importMatch[1];
+		if (/sh\.snapshot/.test(body) && /shRenderList/.test(body)) {
+			ok('importActionsPayload refreshes the strokes panel (snapshot + list)');
+		} else {
+			fail('importActionsPayload does not refresh the strokes panel after a file load');
+		}
+	}
+}
+
+// ── Strokes-history panel (experimental, `s` shortcut) ─────────
+{
+	// Public surface functions are present
+	const expected = ['shToggle', 'shOpen', 'shClose', 'shRenderList', 'shHighlightStroke', 'shDelete', 'shRevert', 'shSave', 'shExportGIF'];
+	for (const fn of expected) {
+		if (new RegExp(`function\\s+${fn}\\s*\\(`).test(html)) ok(`${fn}() defined (strokes panel)`);
+		else fail(`${fn}() missing — strokes panel surface incomplete`);
+	}
+	// `s` key wired to the panel, not the secondary picker
+	const sCase = html.match(/case\s+83:[\s\S]{0,400}/);
+	if (sCase && /shToggle\s*\(\s*\)/.test(sCase[0])) {
+		ok('`s` keydown invokes shToggle()');
+	} else {
+		fail('`s` (case 83) is not routed to the strokes panel');
+	}
+	// Esc closes the panel
+	const escCase = html.match(/case\s+27:[\s\S]{0,200}/);
+	if (escCase && /shClose\s*\(\s*\)/.test(escCase[0])) {
+		ok('Esc keydown closes the strokes panel');
+	} else {
+		fail('Esc handler does not call shClose()');
+	}
+	// CSS for the panel is present
+	if (/\.sh-panel\b/.test(html) && /\.sh-row\b/.test(html) && /\.sh-editor\b/.test(html)) {
+		ok('strokes-panel CSS (.sh-panel/.sh-row/.sh-editor) present');
+	} else {
+		fail('strokes-panel CSS missing');
+	}
+
+	// GIF export must capture frames mid-stroke (every pointsPerFrame),
+	// not just one frame per completed stroke.
+	const gifMatch = html.match(/function\s+shExportGIF\s*\([^)]*\)\s*\{([\s\S]*?)\n\}\n/);
+	if (!gifMatch) {
+		fail('shExportGIF function not found');
+	} else {
+		const body = gifMatch[1];
+		if (/pointsPerFrame/.test(body) && /encodeGIF\s*\(/.test(body)) {
+			ok('shExportGIF captures mid-stroke (pointsPerFrame) and encodes via encodeGIF');
+		} else {
+			fail('shExportGIF does not use mid-stroke capture or does not call encodeGIF');
+		}
+	}
+	// And the panel footer has a button wired to it
+	if (/id="sh-gif"/.test(html) && /querySelector\('#sh-gif'\)\.addEventListener\('click',\s*shExportGIF\)/.test(html)) {
+		ok('strokes panel has a GIF button wired to shExportGIF');
+	} else {
+		fail('strokes panel missing the GIF button or its click handler');
+	}
+}
+
+// ── gzip download / auto-detect upload ──────────────────────────
+{
+	const dlMatch = html.match(/function\s+onMenuDownload\s*\([^)]*\)\s*\{([\s\S]*?)\n\}\n/);
+	if (!dlMatch) {
+		fail('onMenuDownload not found (gzip check)');
+	} else {
+		const body = dlMatch[1];
+		if (/CompressionStream\s*\(\s*['"]gzip['"]\s*\)/.test(body)) {
+			ok('onMenuDownload uses CompressionStream(gzip) when available');
+		} else {
+			fail('onMenuDownload does not gzip the action log');
+		}
+		// Fallback to plain JSON when CompressionStream is missing.
+		if (/typeof\s+CompressionStream\s*!==\s*['"]undefined['"]/.test(body) && /application\/json/.test(body)) {
+			ok('onMenuDownload falls back to plain JSON when CompressionStream is unavailable');
+		} else {
+			fail('onMenuDownload missing the no-CompressionStream fallback');
+		}
+	}
+
+	const upMatch = html.match(/function\s+onMenuUpload\s*\([^)]*\)\s*\{([\s\S]*?)\n\}\n/);
+	if (!upMatch) {
+		fail('onMenuUpload not found (gzip-sniff check)');
+	} else {
+		const body = upMatch[1];
+		// Magic-byte sniff — 0x1F 0x8B
+		if (/0x1F\s*&&\s*bytes\[1\]\s*===\s*0x8B/.test(body) || /0x1F[\s\S]{0,40}0x8B/.test(body)) {
+			ok('onMenuUpload sniffs the gzip magic bytes (0x1F 0x8B)');
+		} else {
+			fail('onMenuUpload does not detect gzip via magic bytes');
+		}
+		if (/DecompressionStream\s*\(\s*['"]gzip['"]\s*\)/.test(body)) {
+			ok('onMenuUpload uses DecompressionStream(gzip) for compressed files');
+		} else {
+			fail('onMenuUpload missing DecompressionStream branch');
+		}
+		// Still accepts plain JSON
+		if (/TextDecoder/.test(body) && /JSON\.parse/.test(body)) {
+			ok('onMenuUpload still accepts plain (uncompressed) JSON files');
+		} else {
+			fail('onMenuUpload lost its plain-JSON path');
 		}
 	}
 }

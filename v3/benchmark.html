@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Harmony — vector vs PNG vs WebP benchmark</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --panel: #161922;
+    --text: #e6e9ef;
+    --mute: #9aa3b2;
+    --vec: #5fb0ff;
+    --vecgz: #b78bff;
+    --png: #f08a4b;
+    --webp: #56d391;
+    --grid: #2a2f3b;
+  }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  body { padding: 28px 32px 60px; }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  h2 { margin: 28px 0 12px; font-size: 16px; font-weight: 600; color: var(--text); }
+  p.sub { color: var(--mute); margin: 0 0 18px; font-size: 13px; max-width: 780px; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--mute); margin-bottom: 14px; }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .card { background: var(--panel); border-radius: 8px; padding: 14px 16px; }
+  table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; text-align: right; }
+  th { color: var(--mute); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+  td:first-child, th:first-child { text-align: left; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .vec { color: var(--vec); } .vecgz { color: var(--vecgz); } .png { color: var(--png); } .webp { color: var(--webp); }
+  .best { font-weight: 600; }
+  #progress { font-size: 13px; color: var(--mute); margin: 12px 0; }
+  .bar { height: 6px; background: var(--grid); border-radius: 3px; overflow: hidden; max-width: 480px; }
+  .bar > div { height: 100%; background: var(--vec); width: 0%; transition: width 0.2s; }
+  .grid-previews { display: grid; gap: 16px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 1200px) { .grid-previews { grid-template-columns: repeat(2, 1fr); } }
+  .preview-row { display: grid; grid-template-columns: 90px 1fr 1fr 1fr; gap: 8px; align-items: center;
+    padding: 8px; background: var(--panel); border-radius: 6px; }
+  .preview-row .meta { font-size: 11px; color: var(--mute); }
+  .preview-row img, .preview-row canvas { width: 100%; height: auto; display: block; border-radius: 4px;
+    image-rendering: -webkit-optimize-contrast; background: #fff; }
+  .cap { font-size: 10px; color: var(--mute); text-align: center; margin-top: 2px; }
+  .final-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .final-grid figure { margin: 0; }
+  .final-grid img { width: 100%; display: block; border-radius: 6px; background: #fff; }
+  .final-grid figcaption { font-size: 12px; color: var(--mute); margin-top: 6px; }
+  small.mono { font-family: ui-monospace, "SF Mono", monospace; color: var(--mute); }
+  .modes { display: flex; gap: 12px; margin: 18px 0 8px; flex-wrap: wrap; }
+  .mode-btn { background: var(--panel); border: 1px solid var(--grid); color: var(--text);
+    padding: 11px 18px 10px; border-radius: 12px; cursor: pointer;
+    font-family: inherit; transition: background 0.15s, border-color 0.15s, transform 0.05s;
+    text-align: left; min-width: 200px; }
+  .mode-btn:hover:not(:disabled) { background: #1c2030; border-color: #3a4150; }
+  .mode-btn:active:not(:disabled) { transform: translateY(1px); }
+  .mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .mode-btn .count { font-size: 18px; font-weight: 700; color: var(--vec); display: block; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mode-btn .label { color: var(--mute); display: block; font-size: 12px; margin-top: 6px; }
+  .mode-btn .hint  { color: var(--mute); opacity: 0.7; display: block; font-size: 10px; margin-top: 2px; font-family: ui-monospace, "SF Mono", monospace; }
+</style>
+</head>
+<body>
+
+<h1>Harmony — vector (.harmony) vs PNG vs WebP</h1>
+<p class="sub">
+  Pick a stroke count below to run a deterministic drawing through four save formats: vector
+  action log (v3’s JSON), the same JSON compressed with <code>gzip</code>
+  (<code>CompressionStream</code>), PNG, and WebP (q=0.92). At each checkpoint we record file
+  size and the time to re-load each format onto a blank canvas. All work happens in this page —
+  no external scripts.
+</p>
+
+<div class="modes" id="modes">
+  <button class="mode-btn" data-strokes="15">
+    <span class="count">15</span>
+    <span class="label">artistic landscape — one stroke per checkpoint</span>
+    <span class="hint">~5 s · 15 CPs</span>
+  </button>
+  <button class="mode-btn" data-strokes="200">
+    <span class="count">200</span>
+    <span class="label">sparse cityscape — 20 strokes / checkpoint</span>
+    <span class="hint">~10 s · 10 CPs</span>
+  </button>
+  <button class="mode-btn" data-strokes="5000">
+    <span class="count">5 000</span>
+    <span class="label">detailed cityscape — 500 strokes / checkpoint</span>
+    <span class="hint">~30 s · 10 CPs</span>
+  </button>
+  <button class="mode-btn" data-strokes="100000">
+    <span class="count">100 000</span>
+    <span class="label">stress test — 10 000 strokes / checkpoint</span>
+    <span class="hint">~1–5 min · 10 CPs · large memory</span>
+  </button>
+</div>
+
+<div class="legend">
+  <span><span class="sw" style="background: var(--vec)"></span>Vector (.harmony JSON)</span>
+  <span><span class="sw" style="background: var(--vecgz)"></span>Vector + gzip</span>
+  <span><span class="sw" style="background: var(--png)"></span>PNG</span>
+  <span><span class="sw" style="background: var(--webp)"></span>WebP q=0.92</span>
+</div>
+
+<div id="progress" style="display: none;">Initialising…<div class="bar"><div></div></div></div>
+
+<div id="results" style="display: none;">
+  <h2>File size per checkpoint</h2>
+  <div id="chart-size"></div>
+
+  <h2>Load time per checkpoint (re-render on a fresh canvas)</h2>
+  <div id="chart-load"></div>
+
+  <h2>Numbers</h2>
+  <div class="card" style="overflow-x: auto;">
+    <table id="tbl"></table>
+  </div>
+
+  <h2>Final image — visual comparison</h2>
+  <div class="final-grid" id="final-grid"></div>
+
+  <h2>Per-checkpoint previews</h2>
+  <div class="grid-previews" id="previews"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// Seeded RNG for brushes — identical to v3's _r() so replays are
+// pixel-deterministic.
+// ─────────────────────────────────────────────────────────────────────
+var _rs = 0;
+function _rseed(s) {
+  var t = (s | 0) || 1;
+  t = Math.imul(t ^ (t >>> 16), 0x85EBCA6B);
+  t = Math.imul(t ^ (t >>> 13), 0xC2B2AE35);
+  t = (t ^ (t >>> 16)) | 0;
+  _rs = t || 1;
+}
+function _r() {
+  _rs = (_rs + 0x6D2B79F5) | 0;
+  var t = _rs;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+// Separate deterministic RNG for the PROGRAM (so the same scene is
+// generated every run). Independent from _r() above.
+var _ps = 0xC0DEFACE;
+function progRand() {
+  _ps = (_ps + 0x6D2B79F5) | 0;
+  var t = _ps;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function progReset(seed) { _ps = seed | 0; }
+
+// ─────────────────────────────────────────────────────────────────────
+// Brushes — verbatim copies of v3/index.html's `simple`, `sketchy`,
+// `watercolor`, `stipple`, `calligraphy`. Using v3's real brush code
+// (instead of simplified benchmark versions) makes the benchmark
+// preview, the saved .harmony file, and the v3 app all render
+// identically. The previous version used stateless lookalikes — same
+// brush *names*, different math — which is why files saved by the
+// benchmark looked wrong when opened in v3.
+//
+// The brushes read globals (COLOR, BRUSH_SIZE, BRUSH_PRESSURE,
+// BRUSH_OPACITY, BRUSH_TILT_X/Y) and call brushSettingGet() and _r().
+// We set the globals before each stroke, and provide brushSettingGet
+// returning hard-coded defaults from v3's BRUSH_SETTINGS_DEFS.
+// ─────────────────────────────────────────────────────────────────────
+var COLOR            = [0, 0, 0];
+var BACKGROUND_COLOR = [250, 250, 250];
+var BRUSH_SIZE       = 1;
+var BRUSH_PRESSURE   = 1;
+var BRUSH_OPACITY    = 1;
+var BRUSH_TILT_X     = 0;
+var BRUSH_TILT_Y     = 0;
+var SCREEN_WIDTH     = 1200;   // overwritten below
+var SCREEN_HEIGHT    = 800;
+
+// Stub for brushSettingGet — returns the v3 defaults for the brushes
+// we use here. Plenty of v3 brushes ignore this; we cover the ones
+// that read it.
+function brushSettingGet(brushName, key) {
+  var d = {
+    sketchy:     { radius: 63, density: 1 },
+    calligraphy: { nibAngle: 45 }
+  };
+  return (d[brushName] && d[brushName][key] != null) ? d[brushName][key] : 0;
+}
+
+// ── simple (v3) ──────────────────────────────────────────────────────
+function simple(context) { this.init(context); }
+simple.prototype = {
+  context: null,
+  prevMouseX: null, prevMouseY: null,
+  init: function(context) {
+    this.context = context;
+    this.context.globalCompositeOperation = 'source-over';
+  },
+  destroy: function() {},
+  strokeStart: function(mouseX, mouseY) {
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+  },
+  stroke: function(mouseX, mouseY) {
+    this.context.lineWidth = BRUSH_SIZE;
+    this.context.strokeStyle = 'rgba(' + COLOR[0] + ',' + COLOR[1] + ',' + COLOR[2] + ',' + (0.5 * BRUSH_PRESSURE * BRUSH_OPACITY) + ')';
+    this.context.beginPath();
+    this.context.moveTo(this.prevMouseX, this.prevMouseY);
+    this.context.lineTo(mouseX, mouseY);
+    this.context.stroke();
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+  },
+  strokeEnd: function() {}
+};
+
+// ── sketchy (v3) ─────────────────────────────────────────────────────
+function sketchy(context) { this.init(context); }
+sketchy.prototype = {
+  context: null,
+  prevMouseX: null, prevMouseY: null,
+  points: null, count: null,
+  init: function(context) {
+    this.context = context;
+    this.context.globalCompositeOperation = 'source-over';
+    this.points = [];
+    this.count = 0;
+  },
+  destroy: function() {},
+  strokeStart: function(mouseX, mouseY) {
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+  },
+  stroke: function(mouseX, mouseY) {
+    var i, dx, dy, d;
+    var radiusPx = brushSettingGet('sketchy', 'radius');
+    var radiusSq = radiusPx * radiusPx;
+    var falloff = radiusSq * 0.5 * brushSettingGet('sketchy', 'density');
+    this.points.push([mouseX, mouseY]);
+    this.context.lineWidth = BRUSH_SIZE;
+    this.context.strokeStyle = 'rgba(' + COLOR[0] + ',' + COLOR[1] + ',' + COLOR[2] + ',' + (0.05 * BRUSH_PRESSURE * BRUSH_OPACITY) + ')';
+    this.context.beginPath();
+    this.context.moveTo(this.prevMouseX, this.prevMouseY);
+    this.context.lineTo(mouseX, mouseY);
+    this.context.stroke();
+    for (i = 0; i < this.points.length; i++) {
+      dx = this.points[i][0] - this.points[this.count][0];
+      dy = this.points[i][1] - this.points[this.count][1];
+      d = dx * dx + dy * dy;
+      if (d < radiusSq && _r() > (d / falloff)) {
+        this.context.beginPath();
+        this.context.moveTo(this.points[this.count][0] + (dx * 0.3), this.points[this.count][1] + (dy * 0.3));
+        this.context.lineTo(this.points[i][0] - (dx * 0.3), this.points[i][1] - (dy * 0.3));
+        this.context.stroke();
+      }
+    }
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+    this.count++;
+  },
+  strokeEnd: function() {}
+};
+
+// ── watercolor (v3) ──────────────────────────────────────────────────
+function watercolor(context) { this.init(context); }
+watercolor.prototype = {
+  context: null, prevMouseX: null, prevMouseY: null, points: null,
+  init: function(context) {
+    this.context = context;
+    this.context.globalCompositeOperation = 'source-over';
+    this.points = [];
+  },
+  destroy: function() {},
+  strokeStart: function(mouseX, mouseY) { this.prevMouseX = mouseX; this.prevMouseY = mouseY; },
+  stroke: function(mouseX, mouseY) {
+    var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+    var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+    var i, ox, oy;
+    this.points.push([mouseX, mouseY]);
+    this.context.lineCap = 'round';
+    var passes    = Math.round(5 + BRUSH_PRESSURE * 5);
+    var bleedMult = 0.5 + BRUSH_PRESSURE * 0.5;
+    for (i = 0; i < passes; i++) {
+      ox = (_r() - 0.5) * BRUSH_SIZE * 1.5 * bleedMult;
+      oy = (_r() - 0.5) * BRUSH_SIZE * 1.5 * bleedMult;
+      this.context.lineWidth = BRUSH_SIZE * (0.5 + _r() * 0.5);
+      this.context.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + (0.015 * p) + ')';
+      this.context.beginPath();
+      this.context.moveTo(this.prevMouseX + ox, this.prevMouseY + oy);
+      this.context.lineTo(mouseX + ox, mouseY + oy);
+      this.context.stroke();
+    }
+    if (this.points.length > 5 && _r() < 0.3) {
+      var idx = Math.floor(_r() * this.points.length);
+      var dx = this.points[idx][0] - mouseX;
+      var dy = this.points[idx][1] - mouseY;
+      if (dx * dx + dy * dy < BRUSH_SIZE * BRUSH_SIZE * 16 * bleedMult * bleedMult) {
+        this.context.lineWidth = BRUSH_SIZE * 0.5;
+        this.context.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + (0.008 * p) + ')';
+        this.context.beginPath();
+        this.context.moveTo(mouseX, mouseY);
+        this.context.lineTo(mouseX + dx * 0.5, mouseY + dy * 0.5);
+        this.context.stroke();
+      }
+    }
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+  },
+  strokeEnd: function() {}
+};
+
+// ── stipple (v3) ─────────────────────────────────────────────────────
+function stipple(context) { this.init(context); }
+stipple.prototype = {
+  context: null, prevMouseX: null, prevMouseY: null,
+  init: function(context) { this.context = context; this.context.globalCompositeOperation = 'source-over'; },
+  destroy: function() {},
+  strokeStart: function(mouseX, mouseY) { this.prevMouseX = mouseX; this.prevMouseY = mouseY; },
+  stroke: function(mouseX, mouseY) {
+    var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+    var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+    var pressureScale = 0.5 + BRUSH_PRESSURE * 0.5;
+    var count = Math.max(1, Math.round((Math.floor(BRUSH_SIZE * 0.8) + 3) * pressureScale));
+    var spread = BRUSH_SIZE * 0.8;
+    var i, x, y, dr, dg, db;
+    for (i = 0; i < count; i++) {
+      x = mouseX + (_r() - 0.5) * spread * 2;
+      y = mouseY + (_r() - 0.5) * spread * 2;
+      dr = Math.min(255, Math.max(0, r + Math.floor((_r() - 0.5) * 30)));
+      dg = Math.min(255, Math.max(0, g + Math.floor((_r() - 0.5) * 30)));
+      db = Math.min(255, Math.max(0, b + Math.floor((_r() - 0.5) * 30)));
+      var dotR = Math.max(0.3, (_r() * 1.5 + 0.5) * pressureScale);
+      this.context.beginPath();
+      this.context.arc(x, y, dotR, 0, Math.PI * 2, false);
+      this.context.fillStyle = 'rgba(' + dr + ',' + dg + ',' + db + ',' + (0.6 * p * _r()) + ')';
+      this.context.fill();
+    }
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+  },
+  strokeEnd: function() {}
+};
+
+// ── calligraphy (v3) ─────────────────────────────────────────────────
+function calligraphy(context) { this.init(context); }
+calligraphy.prototype = {
+  context: null, prevMouseX: null, prevMouseY: null,
+  init: function(context) { this.context = context; this.context.globalCompositeOperation = 'source-over'; },
+  destroy: function() {},
+  strokeStart: function(mouseX, mouseY) { this.prevMouseX = mouseX; this.prevMouseY = mouseY; },
+  stroke: function(mouseX, mouseY) {
+    var r = COLOR[0], g = COLOR[1], b = COLOR[2];
+    var p = BRUSH_PRESSURE * BRUSH_OPACITY;
+    var dx = mouseX - this.prevMouseX;
+    var dy = mouseY - this.prevMouseY;
+    var angle = Math.atan2(dy, dx);
+    var nibAngle = (BRUSH_TILT_X === 0 && BRUSH_TILT_Y === 0)
+      ? brushSettingGet('calligraphy', 'nibAngle') * Math.PI / 180
+      : Math.atan2(BRUSH_TILT_Y, BRUSH_TILT_X);
+    var width = (Math.abs(Math.cos(angle - nibAngle)) * BRUSH_SIZE + 1) * (0.5 + BRUSH_PRESSURE * 0.5);
+    this.context.lineWidth = width;
+    this.context.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + (0.9 * p) + ')';
+    this.context.lineCap = 'butt';
+    this.context.beginPath();
+    this.context.moveTo(this.prevMouseX, this.prevMouseY);
+    this.context.lineTo(mouseX, mouseY);
+    this.context.stroke();
+    this.prevMouseX = mouseX; this.prevMouseY = mouseY;
+  },
+  strokeEnd: function() {}
+};
+
+var BRUSH_CTORS = { simple: simple, sketchy: sketchy, watercolor: watercolor, stipple: stipple, calligraphy: calligraphy };
+
+// Brush manager — one per canvas (live + each replay-timing canvas).
+// Mirrors v3's needReset / destroy-old / init-new logic so cross-stroke
+// state (sketchy.points, watercolor.points) builds the way v3 expects.
+function BrushMgr() { this.name = null; this.brush = null; }
+BrushMgr.prototype.tearDown = function() {
+  if (this.brush && typeof this.brush.destroy === 'function') this.brush.destroy();
+  this.name = null; this.brush = null;
+};
+BrushMgr.prototype.render = function(ctx, action) {
+  if (action.color) { COLOR[0] = action.color[0]; COLOR[1] = action.color[1]; COLOR[2] = action.color[2]; }
+  if (action.bg)    { BACKGROUND_COLOR[0] = action.bg[0]; BACKGROUND_COLOR[1] = action.bg[1]; BACKGROUND_COLOR[2] = action.bg[2]; }
+  BRUSH_SIZE     = action.size != null ? action.size : 1;
+  BRUSH_OPACITY  = action.opacity != null ? action.opacity : 1;
+  BRUSH_PRESSURE = 1;
+  BRUSH_TILT_X   = 0;
+  BRUSH_TILT_Y   = 0;
+  var needReset = action.reset || this.name !== action.brush;
+  if (needReset) {
+    if (this.brush && typeof this.brush.destroy === 'function') this.brush.destroy();
+    var Ctor = BRUSH_CTORS[action.brush];
+    if (!Ctor) { /* unknown brush — skip silently */ this.name = null; this.brush = null; return; }
+    this.name = action.brush;
+    this.brush = new Ctor(ctx);
+  }
+  _rseed(action.seed | 0);
+  var pts = action.points;
+  if (!pts || pts.length === 0) return;
+  // Per-point pressure/tilt — fall back to 1 / 0 when omitted
+  // (synthetic action logs may not encode them).
+  BRUSH_PRESSURE = pts[0].p  != null ? pts[0].p  : 1;
+  BRUSH_TILT_X   = pts[0].tx != null ? pts[0].tx : 0;
+  BRUSH_TILT_Y   = pts[0].ty != null ? pts[0].ty : 0;
+  this.brush.strokeStart(pts[0].x, pts[0].y);
+  for (var i = 1; i < pts.length; i++) {
+    BRUSH_PRESSURE = pts[i].p  != null ? pts[i].p  : 1;
+    BRUSH_TILT_X   = pts[i].tx != null ? pts[i].tx : 0;
+    BRUSH_TILT_Y   = pts[i].ty != null ? pts[i].ty : 0;
+    this.brush.stroke(pts[i].x, pts[i].y);
+  }
+  this.brush.strokeEnd();
+};
+
+// The live canvas keeps a persistent manager (so sketchy accumulates
+// across strokes). Each replay-timing pass below creates its own.
+var liveBrushMgr = new BrushMgr();
+
+function renderAction(ctx, action) { liveBrushMgr.render(ctx, action); }
+
+// ─────────────────────────────────────────────────────────────────────
+// Programs — deterministic drawings at different scales. Each variant
+// runs through the same brushes + RNG, so file-size and load-time
+// numbers are directly comparable across stroke counts.
+//   15      → hand-crafted artistic landscape (1 stroke / checkpoint)
+//   200/5k/100k → algorithmic cityscape, density scaled proportionally
+// ─────────────────────────────────────────────────────────────────────
+var W = 1200, H = 800;
+
+function buildProgram(strokeCount) {
+  return (strokeCount === 15) ? buildProgramLandscape() : buildProgramCity(strokeCount);
+}
+
+function buildProgramLandscape() {
+  progReset(0xC0DEFACE);
+  var prog = [];
+  var seedSrc = 0x10000;
+  function action(brush, color, size, opacity, points) {
+    prog.push({
+      brush: brush, color: color, size: size, opacity: opacity,
+      seed: seedSrc++, points: points
+    });
+  }
+
+  // ── 1. Sky — long horizontal watercolor sweep ────────────────
+  // Wavy band across the top half. Many points so the watercolor
+  // brush's splats overlap and blend into a believable wash.
+  var skyPts = [];
+  for (var i = 0; i <= 80; i++) {
+    var t = i / 80;
+    skyPts.push({
+      x: -40 + t * (W + 80),
+      y: H * 0.22 + Math.sin(t * Math.PI * 2.5) * 60 + (progRand() - 0.5) * 25
+    });
+  }
+  action('watercolor', [170, 195, 230], 42, 0.16, skyPts);
+
+  // ── 2. Sun — single closed loop, calligraphy nib ─────────────
+  var sunCX = W * 0.78, sunCY = H * 0.22, sunR = 72;
+  var sunPts = [];
+  for (var i = 0; i <= 90; i++) {
+    var a = (i / 90) * Math.PI * 2;
+    sunPts.push({ x: sunCX + Math.cos(a) * sunR, y: sunCY + Math.sin(a) * sunR });
+  }
+  action('calligraphy', [255, 198, 90], 14, 0.78, sunPts);
+
+  // ── 3. Far mountain ridge ────────────────────────────────────
+  var farPts = [];
+  for (var i = 0; i <= 80; i++) {
+    var t = i / 80;
+    var y = H * 0.50
+          - Math.sin(t * Math.PI * 3.4) * 70
+          - Math.sin(t * Math.PI * 1.2) * 55;
+    farPts.push({ x: t * W, y: y + (progRand() - 0.5) * 5 });
+  }
+  action('sketchy', [105, 115, 145], 1.4, 0.55, farPts);
+
+  // ── 4. Near mountain ridge — darker, taller in places ────────
+  var nearPts = [];
+  for (var i = 0; i <= 90; i++) {
+    var t = i / 90;
+    var y = H * 0.60
+          - Math.sin(t * Math.PI * 5.5 + 1.0) * 110
+          - Math.cos(t * Math.PI * 2.2) * 30;
+    nearPts.push({ x: t * W, y: y + (progRand() - 0.5) * 4 });
+  }
+  action('sketchy', [55, 65, 90], 1.8, 0.7, nearPts);
+
+  // ── 5. Cloud — left ──────────────────────────────────────────
+  var c1cx = W * 0.18, c1cy = H * 0.16;
+  var c1pts = [];
+  for (var i = 0; i < 18; i++) {
+    var a = progRand() * Math.PI * 2;
+    var r = progRand() * 50;
+    c1pts.push({ x: c1cx + Math.cos(a) * r, y: c1cy + Math.sin(a) * r * 0.55 });
+  }
+  action('watercolor', [255, 252, 248], 30, 0.28, c1pts);
+
+  // ── 6. Cloud — center, wider ─────────────────────────────────
+  var c2cx = W * 0.42, c2cy = H * 0.11;
+  var c2pts = [];
+  for (var i = 0; i < 22; i++) {
+    var a = progRand() * Math.PI * 2;
+    var r = progRand() * 65;
+    c2pts.push({ x: c2cx + Math.cos(a) * r * 1.3, y: c2cy + Math.sin(a) * r * 0.45 });
+  }
+  action('watercolor', [255, 250, 240], 36, 0.26, c2pts);
+
+  // ── 7. Lake — broad horizontal watercolor band ───────────────
+  var lakePts = [];
+  for (var i = 0; i <= 70; i++) {
+    var t = i / 70;
+    lakePts.push({
+      x: t * W,
+      y: H * 0.74 + Math.sin(t * Math.PI * 8) * 4 + (progRand() - 0.5) * 3
+    });
+  }
+  action('watercolor', [88, 130, 175], 56, 0.22, lakePts);
+
+  // ── 8. Shore — single calligraphy horizon line ───────────────
+  var shorePts = [];
+  for (var i = 0; i <= 40; i++) {
+    var t = i / 40;
+    shorePts.push({ x: t * W, y: H * 0.66 + (progRand() - 0.5) * 3 });
+  }
+  action('calligraphy', [42, 52, 70], 3.5, 0.85, shorePts);
+
+  // ── 9. Tree trunk (left) ─────────────────────────────────────
+  var trunk1x = W * 0.20;
+  var t1pts = [];
+  for (var i = 0; i <= 24; i++) {
+    var t = i / 24;
+    t1pts.push({ x: trunk1x + (progRand() - 0.5) * 4, y: H * 0.86 - t * 200 });
+  }
+  action('sketchy', [70, 45, 28], 5, 0.85, t1pts);
+
+  // ── 10. Tree foliage (left) ──────────────────────────────────
+  var f1pts = [];
+  for (var i = 0; i < 26; i++) {
+    var a = progRand() * Math.PI * 2;
+    var r = progRand() * 55;
+    f1pts.push({ x: trunk1x + Math.cos(a) * r, y: H * 0.86 - 200 + Math.sin(a) * r * 0.95 });
+  }
+  action('watercolor', [50, 105, 60], 30, 0.32, f1pts);
+
+  // ── 11. Tree trunk (right) ───────────────────────────────────
+  var trunk2x = W * 0.84;
+  var t2pts = [];
+  for (var i = 0; i <= 26; i++) {
+    var t = i / 26;
+    t2pts.push({ x: trunk2x + (progRand() - 0.5) * 5, y: H * 0.88 - t * 230 });
+  }
+  action('sketchy', [60, 40, 25], 6, 0.85, t2pts);
+
+  // ── 12. Tree foliage (right) ─────────────────────────────────
+  var f2pts = [];
+  for (var i = 0; i < 30; i++) {
+    var a = progRand() * Math.PI * 2;
+    var r = progRand() * 68;
+    f2pts.push({ x: trunk2x + Math.cos(a) * r * 1.05, y: H * 0.88 - 230 + Math.sin(a) * r * 0.9 });
+  }
+  action('watercolor', [40, 95, 50], 38, 0.30, f2pts);
+
+  // ── 13. Flock of birds — sketchy V-shapes drawn as one path ──
+  var birdsPts = [];
+  for (var i = 0; i < 7; i++) {
+    var cx = W * 0.25 + i * 60 + (progRand() - 0.5) * 18;
+    var cy = H * 0.30 + (progRand() - 0.5) * 50;
+    var w  = 13 + (progRand() * 4);
+    birdsPts.push({ x: cx - w,        y: cy });
+    birdsPts.push({ x: cx - w * 0.4,  y: cy - w * 0.55 });
+    birdsPts.push({ x: cx,            y: cy - w * 0.2 });
+    birdsPts.push({ x: cx + w * 0.4,  y: cy - w * 0.55 });
+    birdsPts.push({ x: cx + w,        y: cy });
+  }
+  action('sketchy', [40, 48, 65], 1.5, 0.85, birdsPts);
+
+  // ── 14. Grass — wavy sketchy line across the foreground ──────
+  var grassPts = [];
+  for (var i = 0; i <= 90; i++) {
+    var t = i / 90;
+    grassPts.push({
+      x: t * W,
+      y: H * 0.94 + Math.sin(t * Math.PI * 26) * 10 + (progRand() - 0.5) * 4
+    });
+  }
+  action('sketchy', [65, 110, 55], 2.4, 0.65, grassPts);
+
+  // ── 15. Stars — single stipple stroke peppering the upper sky
+  var sparkPts = [];
+  for (var i = 0; i < 36; i++) {
+    sparkPts.push({ x: progRand() * W, y: progRand() * H * 0.35 });
+  }
+  action('stipple', [255, 250, 220], 3.2, 0.7, sparkPts);
+
+  return prog;
+}
+
+// Scaled cityscape — same 10-phase structure across all sizes; each
+// phase gets `targetCount / 10` strokes. Phase content is unchanged
+// from the original 5000-stroke design, only the per-phase loop count
+// scales.
+function buildProgramCity(targetCount) {
+  progReset(0xC0DEFACE);
+  var prog = [];
+  var seedSrc = 0x10000;
+  function action(brush, color, size, opacity, points) {
+    prog.push({ brush: brush, color: color, size: size, opacity: opacity, seed: seedSrc++, points: points });
+  }
+  function rng(lo, hi) { return lo + progRand() * (hi - lo); }
+  function lineStrokePts(x1, y1, x2, y2, n) {
+    var pts = [];
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      pts.push({ x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t });
+    }
+    return pts;
+  }
+  var perPhase = Math.max(1, Math.round(targetCount / 10));
+  var phaseEnds = [];
+  for (var pi = 1; pi <= 10; pi++) phaseEnds.push(pi * perPhase);
+  // Final phase swallows any rounding remainder so the total lands
+  // exactly on targetCount.
+  phaseEnds[9] = targetCount;
+
+  // ── Phase 1: Sky watercolor wisps
+  while (prog.length < phaseEnds[0]) {
+    var topMix = progRand();
+    var y = 20 + topMix * (H * 0.45);
+    var x = rng(-80, W + 80);
+    var n = 5 + ((progRand() * 8) | 0);
+    var step = rng(8, 18);
+    var pts = [];
+    for (var j = 0; j < n; j++) pts.push({ x: x + j * step, y: y + (progRand() - 0.5) * 8 });
+    var r = Math.round(60 + topMix * 200);
+    var g = Math.round(80 + topMix * 140);
+    var b = Math.round(160 - topMix * 60);
+    action('watercolor', [r, g, b], rng(22, 36), 0.10, pts);
+  }
+
+  // ── Phase 2: Sun + radial sketchy
+  var sunX = W * 0.74, sunY = H * 0.22;
+  while (prog.length < phaseEnds[1]) {
+    var a = progRand() * Math.PI * 2;
+    var r0 = rng(15, 90);
+    var r1 = r0 + rng(20, 100);
+    var n2 = 4 + ((progRand() * 4) | 0);
+    var pts2 = [];
+    for (var j = 0; j <= n2; j++) {
+      var t = j / n2;
+      var rr = r0 + (r1 - r0) * t;
+      pts2.push({ x: sunX + Math.cos(a) * rr, y: sunY + Math.sin(a) * rr });
+    }
+    // simple (clean line) — v3's sketchy webs across strokes at scale,
+    // so 500+ sketchy strokes per phase becomes an opaque mass. simple
+    // gives a clean radial-burst look at any density.
+    action('simple', [255, 200 + ((progRand()*40)|0), 90 + ((progRand()*60)|0)], rng(1, 2.5), 0.35, pts2);
+  }
+
+  // ── Phase 3: Distant mountains
+  while (prog.length < phaseEnds[2]) {
+    var cx = rng(-100, W + 100);
+    var baseY = H * 0.55 + (progRand() - 0.5) * 10;
+    var peakH = rng(60, 220);
+    var span = rng(140, 360);
+    var n3 = 10 + ((progRand() * 4) | 0);
+    var pts3 = [];
+    for (var j = 0; j <= n3; j++) {
+      var t = j / n3;
+      var bell = Math.sin(t * Math.PI);
+      pts3.push({ x: cx + (t - 0.5) * span, y: baseY - peakH * bell + (progRand() - 0.5) * 5 });
+    }
+    action('simple', [60 + ((progRand()*30)|0), 70 + ((progRand()*25)|0), 95 + ((progRand()*30)|0)], rng(0.7, 1.4), 0.5, pts3);
+  }
+
+  // ── Phase 4: Distant city silhouette
+  while (prog.length < phaseEnds[3]) {
+    var bw4 = rng(28, 90);
+    var bh4 = rng(80, 280);
+    var bx4 = rng(0, W);
+    var baseY4 = H * 0.72;
+    action('simple', [30, 36, 52], 1.4, 0.92, lineStrokePts(bx4, baseY4, bx4, baseY4 - bh4, 6));
+    if (prog.length >= phaseEnds[3]) break;
+    action('simple', [30, 36, 52], 1.4, 0.92, lineStrokePts(bx4 + bw4, baseY4, bx4 + bw4, baseY4 - bh4, 6));
+    if (prog.length >= phaseEnds[3]) break;
+    action('simple', [30, 36, 52], 1.4, 0.92, lineStrokePts(bx4, baseY4 - bh4, bx4 + bw4, baseY4 - bh4, 6));
+    if (prog.length >= phaseEnds[3]) break;
+    var sn = 1 + ((progRand() * 3) | 0);
+    for (var k = 0; k < sn && prog.length < phaseEnds[3]; k++) {
+      var sy = baseY4 - bh4 + (k + 1) * (bh4 / (sn + 1));
+      action('simple', [60, 72, 95], 0.6, 0.4, lineStrokePts(bx4, sy, bx4 + bw4, sy, 5));
+    }
+  }
+
+  // ── Phase 5: Mid-distance buildings
+  while (prog.length < phaseEnds[4]) {
+    var bw5 = rng(60, 140);
+    var bh5 = rng(120, 360);
+    var bx5 = rng(0, W);
+    var baseY5 = H * 0.80;
+    var tint = [40 + ((progRand() * 30) | 0), 50 + ((progRand() * 30) | 0), 80 + ((progRand() * 40) | 0)];
+    action('simple', tint, 2.0, 0.95, lineStrokePts(bx5, baseY5, bx5, baseY5 - bh5, 8));
+    if (prog.length >= phaseEnds[4]) break;
+    action('simple', tint, 2.0, 0.95, lineStrokePts(bx5 + bw5, baseY5, bx5 + bw5, baseY5 - bh5, 8));
+    if (prog.length >= phaseEnds[4]) break;
+    action('simple', tint, 2.0, 0.95, lineStrokePts(bx5, baseY5 - bh5, bx5 + bw5, baseY5 - bh5, 8));
+    if (prog.length >= phaseEnds[4]) break;
+    var washPts = [];
+    for (var j = 0; j <= 5; j++) {
+      var t = j / 5;
+      washPts.push({ x: bx5 + bw5 * t, y: baseY5 - bh5 * 0.5 + (progRand() - 0.5) * 4 });
+    }
+    action('watercolor', tint, rng(28, 50), 0.10, washPts);
+  }
+
+  // ── Phase 6: Windows
+  while (prog.length < phaseEnds[5]) {
+    var cx6 = rng(40, W - 40);
+    var cy6 = rng(H * 0.30, H * 0.78);
+    var warm = (progRand() < 0.65);
+    var rgb = warm ? [255, 220, 130] : [180, 200, 240];
+    action('stipple', rgb, rng(2.5, 4.5), rng(0.55, 0.85), [{ x: cx6, y: cy6 }]);
+  }
+
+  // ── Phase 7: Road
+  while (prog.length < phaseEnds[6]) {
+    var startX = rng(-50, W);
+    var y7 = H * 0.85 + (progRand() - 0.5) * 30;
+    var dx = rng(60, 180);
+    var pts7 = lineStrokePts(startX, y7, startX + dx, y7 + (progRand() - 0.5) * 8, 8);
+    action('calligraphy', [25, 28, 40], rng(2, 5), rng(0.5, 0.9), pts7);
+  }
+
+  // ── Phase 8: Foliage
+  while (prog.length < phaseEnds[7]) {
+    var tx = rng(0, W);
+    var ty = rng(H * 0.72, H * 0.86);
+    var sp = rng(6, 16);
+    var pts8 = [
+      { x: tx,             y: ty },
+      { x: tx + sp,        y: ty - sp * 0.6 },
+      { x: tx + sp * 0.5,  y: ty - sp * 1.2 },
+      { x: tx,             y: ty - sp * 0.8 },
+      { x: tx - sp * 0.5,  y: ty - sp * 0.4 }
+    ];
+    action('simple', [40 + ((progRand()*40)|0), 90 + ((progRand()*50)|0), 50 + ((progRand()*30)|0)], rng(1, 2.2), 0.55, pts8);
+  }
+
+  // ── Phase 9: Crowd / birds
+  while (prog.length < phaseEnds[8]) {
+    if (progRand() < 0.5) {
+      var bx9 = rng(50, W - 50);
+      var by9 = rng(80, H * 0.35);
+      var w9 = rng(8, 18);
+      action('simple', [40, 44, 60], 1.0, 0.7, [
+        { x: bx9 - w9,        y: by9 },
+        { x: bx9 - w9 * 0.4,  y: by9 - w9 * 0.5 },
+        { x: bx9,             y: by9 - w9 * 0.15 },
+        { x: bx9 + w9 * 0.4,  y: by9 - w9 * 0.5 },
+        { x: bx9 + w9,        y: by9 }
+      ]);
+    } else {
+      var px = rng(20, W - 20);
+      var py = H * 0.86 + (progRand() - 0.5) * 8;
+      var sh = rng(10, 22);
+      action('simple', [20, 22, 28], rng(0.9, 1.6), 0.85, lineStrokePts(px, py, px, py - sh, 4));
+    }
+  }
+
+  // ── Phase 10: Stars + sparkle
+  while (prog.length < phaseEnds[9]) {
+    action('stipple', [255, 252, 230], rng(1.2, 2.8), rng(0.4, 0.9),
+      [{ x: rng(0, W), y: rng(0, H * 0.40) }]);
+  }
+
+  return prog;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Benchmark runner
+// ─────────────────────────────────────────────────────────────────────
+function canvasToBlobAsync(canvas, type, quality) {
+  return new Promise(function(resolve, reject) {
+    canvas.toBlob(function(b) {
+      if (b) resolve(b);
+      else reject(new Error('toBlob returned null for ' + type));
+    }, type, quality);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// gzip via browser CompressionStream (Chrome 80+, Firefox 113+,
+// Safari 16.4+). Returns a Uint8Array of compressed bytes.
+// ─────────────────────────────────────────────────────────────────────
+async function gzipString(text) {
+  if (typeof CompressionStream === 'undefined') throw new Error('CompressionStream unavailable');
+  var stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+  var buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function gunzipToString(bytes) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('DecompressionStream unavailable');
+  var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+
+function blobToDataURL(blob) {
+  return new Promise(function(res) {
+    var fr = new FileReader();
+    fr.onload = function() { res(fr.result); };
+    fr.readAsDataURL(blob);
+  });
+}
+
+function loadImageFromBlob(blob) {
+  return new Promise(function(res, rej) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() { URL.revokeObjectURL(url); res(img); };
+    img.onerror = function(e) { URL.revokeObjectURL(url); rej(e); };
+    img.src = url;
+  });
+}
+
+// Time the *complete* round-trip: blob → Image() decode → drawImage on a
+// fresh white canvas. This is what an app actually pays at open-file time.
+function measureRasterLoad(blob) {
+  return loadImageFromBlob(blob).then(function() {
+    // Image is decoded. Now measure draw → fresh canvas.
+    var t0 = performance.now();
+    return loadImageFromBlob(blob).then(function(img) {
+      var c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      var cx = c.getContext('2d');
+      cx.fillStyle = '#fafafa';
+      cx.fillRect(0, 0, W, H);
+      cx.drawImage(img, 0, 0);
+      return performance.now() - t0;
+    });
+  });
+}
+
+// Time the plain-JSON "open-file" path: JSON.parse → replay onto a
+// fresh canvas. We don't include compression — that's the gzip variant
+// below. Parse time is deliberately included so this is apples-to-
+// apples with the gzip path, which also pays for parse.
+function measureVectorReplay(jsonStr) {
+  var t0 = performance.now();
+  var parsed = JSON.parse(jsonStr);
+  var actions = parsed.actions || [];
+  var c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  var cx = c.getContext('2d');
+  cx.fillStyle = '#fafafa';
+  cx.fillRect(0, 0, W, H);
+  var mgr = new BrushMgr();
+  for (var i = 0; i < actions.length; i++) mgr.render(cx, actions[i]);
+  mgr.tearDown();
+  return Promise.resolve(performance.now() - t0);
+}
+
+// Time the full gzipped-vector open-file path: gunzip → JSON.parse →
+// replay. This is what an app actually pays at open-file time when the
+// file is stored compressed.
+async function measureVectorGzipLoad(gzipBytes) {
+  var t0 = performance.now();
+  var text = await gunzipToString(gzipBytes);
+  var parsed = JSON.parse(text);
+  var actions = parsed.actions || [];
+  var c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  var cx = c.getContext('2d');
+  cx.fillStyle = '#fafafa';
+  cx.fillRect(0, 0, W, H);
+  var mgr = new BrushMgr();
+  for (var i = 0; i < actions.length; i++) mgr.render(cx, actions[i]);
+  mgr.tearDown();
+  return performance.now() - t0;
+}
+
+// Make a thumbnail (downscaled PNG) from a source canvas.
+function makeThumb(srcCanvas, maxW) {
+  var scale = maxW / srcCanvas.width;
+  var c = document.createElement('canvas');
+  c.width = Math.round(srcCanvas.width * scale);
+  c.height = Math.round(srcCanvas.height * scale);
+  var ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(srcCanvas, 0, 0, c.width, c.height);
+  return c.toDataURL('image/png');
+}
+
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+function fmtMs(ms) {
+  if (ms < 1) return ms.toFixed(2) + ' ms';
+  if (ms < 100) return ms.toFixed(1) + ' ms';
+  if (ms < 1000) return Math.round(ms) + ' ms';
+  return (ms / 1000).toFixed(2) + ' s';
+}
+
+function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+async function run(strokeCount) {
+  // Reset live brush state so previous runs don't leak (sketchy's
+  // points accumulator etc.).
+  liveBrushMgr.tearDown();
+
+  // The benchmark canvas pixel-density matches the v3 default for
+  // synthetic files (pixelRatio: 1). v3 will scale up on hi-DPI
+  // screens via CSS, same way it does for any saved file.
+  SCREEN_WIDTH = W; SCREEN_HEIGHT = H;
+
+  var program = buildProgram(strokeCount);
+  // 15-stroke landscape gets one checkpoint per stroke for fine
+  // resolution; larger programs use 10 evenly-spaced checkpoints.
+  var CP_COUNT = (program.length <= 30) ? program.length : 10;
+  var strokesPerCP = Math.ceil(program.length / CP_COUNT);
+  // For very large programs, decoding PNG + WebP back to full-size
+  // ImageData at every checkpoint costs ~30 MB extra each time. We
+  // only need the decoded canvases for thumbnail comparison; at 100 k
+  // strokes we skip the decoded-thumb step on intermediate CPs and
+  // just downsample the live canvas (lossless, visually identical to
+  // the PNG decode).
+  var DECODE_PER_CP = (strokeCount <= 5000);
+
+  // Live canvas — used for the cumulative draw.
+  var canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(0, 0, W, H);
+
+  var done = 0;
+  var results = [];
+
+  for (var cp = 0; cp < CP_COUNT; cp++) {
+    var target = Math.min(program.length, (cp + 1) * strokesPerCP);
+    while (done < target) {
+      renderAction(ctx, program[done]);
+      done++;
+    }
+
+    // ── Save in all three formats ────────────────────────────────
+    var actionsSnap = program.slice(0, done);
+    var payload = {
+      format: 'harmony-v3',
+      version: 1,
+      width: W, height: H,
+      background: [250, 250, 250],
+      index: done - 1,
+      actions: actionsSnap
+    };
+    var jsonStr = JSON.stringify(payload);
+    var jsonBytes = new Blob([jsonStr]).size;
+
+    // gzip the JSON. If the browser lacks CompressionStream, this whole
+    // series is reported as N/A.
+    var vecGzipBytes = null;
+    var vecGzipSize  = null;
+    try {
+      vecGzipBytes = await gzipString(jsonStr);
+      vecGzipSize  = vecGzipBytes.byteLength;
+    } catch (e) { /* CompressionStream missing — leave null */ }
+
+    var pngBlob  = await canvasToBlobAsync(canvas, 'image/png');
+    var webpBlob = null;
+    try { webpBlob = await canvasToBlobAsync(canvas, 'image/webp', 0.92); }
+    catch (e) { /* browser without WebP encode support */ }
+
+    // ── Time the round-trip loads ────────────────────────────────
+    // Warm-up (each first decode is much slower than steady-state).
+    await loadImageFromBlob(pngBlob);
+    if (webpBlob) await loadImageFromBlob(webpBlob);
+    if (vecGzipBytes) await gunzipToString(vecGzipBytes);  // warm gunzip
+
+    var pngLoad     = await measureRasterLoad(pngBlob);
+    var webpLoad    = webpBlob ? await measureRasterLoad(webpBlob) : null;
+    var vecLoad     = await measureVectorReplay(jsonStr);
+    var vecGzipLoad = vecGzipBytes ? await measureVectorGzipLoad(vecGzipBytes) : null;
+
+    // ── Thumbnails for the preview grid ──────────────────────────
+    // All three thumbs are rendered through the SAME pipeline: produce
+    // a full-resolution canvas that represents what *loading* that
+    // format would show, then downsample with high quality. Anything
+    // else would just be comparing thumbnail-rendering pipelines.
+    //
+    //  • Vector = the live canvas (replay is what populated it; PNG-
+    //    lossless, so re-replaying into a fresh canvas produces the
+    //    same pixels).
+    //  • PNG    = decode pngBlob → drawImage to a full-size canvas
+    //    (lossless; visually identical to vector — that's the point).
+    //  • WebP   = decode webpBlob → drawImage → captures the actual
+    //    compression artifacts WebP introduces.
+    // Decode PNG + WebP into full-size canvases so we capture the
+    // actual on-disk-then-loaded pixels for the thumbnails. Skipped on
+    // intermediate checkpoints of very large runs to save memory — the
+    // final CP always decodes so the "Final image" panel is honest.
+    var isLastCP = (cp === CP_COUNT - 1);
+    var doDecode = DECODE_PER_CP || isLastCP;
+
+    var pngFullCanvas = null;
+    var webpFullCanvas = null;
+    if (doDecode) {
+      var pngFull  = await loadImageFromBlob(pngBlob);
+      pngFullCanvas = document.createElement('canvas');
+      pngFullCanvas.width = W; pngFullCanvas.height = H;
+      var pngFullCtx = pngFullCanvas.getContext('2d');
+      pngFullCtx.fillStyle = '#fafafa';
+      pngFullCtx.fillRect(0, 0, W, H);
+      pngFullCtx.drawImage(pngFull, 0, 0);
+
+      if (webpBlob) {
+        var webpFull = await loadImageFromBlob(webpBlob);
+        webpFullCanvas = document.createElement('canvas');
+        webpFullCanvas.width = W; webpFullCanvas.height = H;
+        var webpFullCtx = webpFullCanvas.getContext('2d');
+        webpFullCtx.fillStyle = '#fafafa';
+        webpFullCtx.fillRect(0, 0, W, H);
+        webpFullCtx.drawImage(webpFull, 0, 0);
+      }
+    }
+
+    var vecThumb  = makeThumb(canvas, 300);                                       // lossless = PNG decode
+    var pngThumb  = doDecode ? makeThumb(pngFullCanvas, 300)  : vecThumb;          // PNG lossless → same pixels
+    var webpThumb = doDecode && webpFullCanvas ? makeThumb(webpFullCanvas, 300) : null;
+
+    results.push({
+      cp:         cp + 1,
+      strokes:    done,
+      sizeVec:    jsonBytes,
+      sizeVecGz:  vecGzipSize,
+      sizePng:    pngBlob.size,
+      sizeWebp:   webpBlob ? webpBlob.size : null,
+      loadVec:    vecLoad,
+      loadVecGz:  vecGzipLoad,
+      loadPng:    pngLoad,
+      loadWebp:   webpLoad,
+      vecThumb:   vecThumb,
+      pngThumb:   pngThumb,
+      webpThumb:  webpThumb,
+      // Full-resolution captures, kept for the LAST checkpoint only
+      // (each is ~3 MB as a base64 PNG string).
+      fullVecURL:  isLastCP ? canvas.toDataURL('image/png')        : null,
+      fullPngURL:  isLastCP && pngFullCanvas  ? pngFullCanvas.toDataURL('image/png')  : null,
+      fullWebpURL: isLastCP && webpFullCanvas ? webpFullCanvas.toDataURL('image/png') : null
+    });
+
+    var pct = ((cp + 1) / CP_COUNT * 100);
+    var p = document.getElementById('progress');
+    p.innerHTML = 'Checkpoint <b>' + (cp + 1) + ' / ' + CP_COUNT + '</b> — '
+      + done + ' / ' + program.length + ' strokes drawn'
+      + '<div class="bar"><div style="width:' + pct + '%"></div></div>';
+    await sleep(0);
+  }
+
+  document.getElementById('progress').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+  renderResults(results, canvas);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SVG line chart
+// ─────────────────────────────────────────────────────────────────────
+function makeChart(series, valueLabel, formatVal) {
+  // series: [{ name, color, values: [n,...] }]
+  var W2 = 720, H2 = 280;
+  var pad = { l: 56, r: 18, t: 14, b: 28 };
+  var n = series[0].values.length;
+  // Y scale: max across all non-null values
+  var maxV = 0;
+  series.forEach(function(s) {
+    s.values.forEach(function(v) { if (v != null && v > maxV) maxV = v; });
+  });
+  if (maxV === 0) maxV = 1;
+  // Pad the max up 8% so the top line doesn't kiss the frame.
+  maxV = maxV * 1.08;
+
+  var iw = W2 - pad.l - pad.r;
+  var ih = H2 - pad.t - pad.b;
+  function xs(i) { return pad.l + (i / (n - 1)) * iw; }
+  function ys(v) { return pad.t + ih - (v / maxV) * ih; }
+
+  var svg = ['<svg width="' + W2 + '" height="' + H2 + '" viewBox="0 0 ' + W2 + ' ' + H2 + '" style="display:block;">'];
+
+  // Grid + Y labels (5 ticks)
+  for (var t = 0; t <= 5; t++) {
+    var v = (maxV / 5) * t;
+    var y = ys(v);
+    svg.push('<line x1="' + pad.l + '" y1="' + y + '" x2="' + (W2 - pad.r) + '" y2="' + y + '" stroke="var(--grid)" stroke-width="1"/>');
+    svg.push('<text x="' + (pad.l - 8) + '" y="' + (y + 4) + '" text-anchor="end" font-size="11" fill="var(--mute)">' + formatVal(v) + '</text>');
+  }
+  // X labels (checkpoint numbers)
+  for (var i = 0; i < n; i++) {
+    var x = xs(i);
+    svg.push('<text x="' + x + '" y="' + (H2 - 8) + '" text-anchor="middle" font-size="11" fill="var(--mute)">' + (i + 1) + '</text>');
+  }
+  svg.push('<text x="' + (W2 / 2) + '" y="' + (H2) + '" text-anchor="middle" font-size="11" fill="var(--mute)">checkpoint</text>');
+
+  // Each series
+  series.forEach(function(s) {
+    var path = '';
+    var dotsHtml = '';
+    var lastX = null, lastY = null;
+    for (var i = 0; i < n; i++) {
+      var v = s.values[i];
+      if (v == null) continue;
+      var x = xs(i), y = ys(v);
+      path += (path ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
+      dotsHtml += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + s.color + '"><title>cp ' + (i + 1) + ': ' + formatVal(v) + '</title></circle>';
+      lastX = x; lastY = y;
+    }
+    svg.push('<path d="' + path + '" fill="none" stroke="' + s.color + '" stroke-width="2"/>');
+    svg.push(dotsHtml);
+  });
+
+  // axis lines
+  svg.push('<line x1="' + pad.l + '" y1="' + pad.t + '" x2="' + pad.l + '" y2="' + (H2 - pad.b) + '" stroke="var(--mute)" stroke-width="1"/>');
+  svg.push('<line x1="' + pad.l + '" y1="' + (H2 - pad.b) + '" x2="' + (W2 - pad.r) + '" y2="' + (H2 - pad.b) + '" stroke="var(--mute)" stroke-width="1"/>');
+
+  svg.push('</svg>');
+  return svg.join('');
+}
+
+function renderResults(rows, finalCanvas) {
+  // ── Size chart ──
+  document.getElementById('chart-size').innerHTML = makeChart([
+    { name: 'Vector',     color: 'var(--vec)',   values: rows.map(function(r){ return r.sizeVec; }) },
+    { name: 'Vector+gz',  color: 'var(--vecgz)', values: rows.map(function(r){ return r.sizeVecGz; }) },
+    { name: 'PNG',        color: 'var(--png)',   values: rows.map(function(r){ return r.sizePng; }) },
+    { name: 'WebP 92%',   color: 'var(--webp)',  values: rows.map(function(r){ return r.sizeWebp; }) }
+  ], 'size', fmtBytes);
+
+  // ── Load chart ──
+  document.getElementById('chart-load').innerHTML = makeChart([
+    { name: 'Vector',     color: 'var(--vec)',   values: rows.map(function(r){ return r.loadVec; }) },
+    { name: 'Vector+gz',  color: 'var(--vecgz)', values: rows.map(function(r){ return r.loadVecGz; }) },
+    { name: 'PNG',        color: 'var(--png)',   values: rows.map(function(r){ return r.loadPng; }) },
+    { name: 'WebP 92%',   color: 'var(--webp)',  values: rows.map(function(r){ return r.loadWebp; }) }
+  ], 'ms', fmtMs);
+
+  // ── Table ──
+  var tbl = document.getElementById('tbl');
+  tbl.innerHTML =
+    '<thead><tr>'
+    + '<th>CP</th><th>Strokes</th>'
+    + '<th class="vec">Vector</th><th class="vecgz">Vec+gz</th><th class="png">PNG</th><th class="webp">WebP</th>'
+    + '<th class="vec">Vec load</th><th class="vecgz">Vec+gz load</th><th class="png">PNG load</th><th class="webp">WebP load</th>'
+    + '</tr></thead><tbody></tbody>';
+  var tb = tbl.querySelector('tbody');
+  rows.forEach(function(r) {
+    var sizes = [
+      ['vec',   r.sizeVec],
+      ['vecgz', r.sizeVecGz],
+      ['png',   r.sizePng],
+      ['webp',  r.sizeWebp]
+    ].filter(function(p){ return p[1] != null; });
+    var minSize = sizes.reduce(function(a, b){ return b[1] < a[1] ? b : a; });
+    var loads = [
+      ['vec',   r.loadVec],
+      ['vecgz', r.loadVecGz],
+      ['png',   r.loadPng],
+      ['webp',  r.loadWebp]
+    ].filter(function(p){ return p[1] != null; });
+    var minLoad = loads.reduce(function(a, b){ return b[1] < a[1] ? b : a; });
+    function sizeTd(label, val) {
+      var cls = label + (minSize[0] === label ? ' best' : '');
+      return '<td class="' + cls + '">' + (val == null ? '—' : fmtBytes(val)) + '</td>';
+    }
+    function loadTd(label, val) {
+      var cls = label + (minLoad[0] === label ? ' best' : '');
+      return '<td class="' + cls + '">' + (val == null ? '—' : fmtMs(val)) + '</td>';
+    }
+    tb.insertAdjacentHTML('beforeend',
+      '<tr><td>' + r.cp + '</td><td>' + r.strokes + '</td>'
+      + sizeTd('vec', r.sizeVec) + sizeTd('vecgz', r.sizeVecGz) + sizeTd('png', r.sizePng) + sizeTd('webp', r.sizeWebp)
+      + loadTd('vec', r.loadVec) + loadTd('vecgz', r.loadVecGz) + loadTd('png', r.loadPng) + loadTd('webp', r.loadWebp)
+      + '</tr>');
+  });
+
+  // ── Final visual comparison ──
+  // Full-resolution PNGs of each format's *decoded* pixels. Vector and
+  // PNG are both lossless, so they should look pixel-identical — the
+  // only file you should see compression artifacts in is the WebP one.
+  var last = rows[rows.length - 1];
+  document.getElementById('final-grid').innerHTML =
+      '<figure><img src="' + (last.fullVecURL  || last.vecThumb)  + '"/><figcaption>Vector replay — ' + fmtBytes(last.sizeVec)  + ' <small class="mono">(lossless)</small></figcaption></figure>'
+    + '<figure><img src="' + (last.fullPngURL  || last.pngThumb)  + '"/><figcaption>PNG — '            + fmtBytes(last.sizePng)  + ' <small class="mono">(lossless — should look identical to Vector)</small></figcaption></figure>'
+    + '<figure><img src="' + (last.fullWebpURL || last.webpThumb || '') + '"/><figcaption>WebP q=0.92 — ' + (last.sizeWebp != null ? fmtBytes(last.sizeWebp) + ' <small class=\"mono\">(lossy — look for compression artifacts)</small>' : 'unsupported') + '</figcaption></figure>';
+
+  // ── Per-checkpoint previews ──
+  // (Vector + gzip is bit-identical to plain vector after decompression,
+  //  so its size / load are listed under the vector thumb rather than
+  //  shown as a fifth image column.)
+  var pv = document.getElementById('previews');
+  pv.innerHTML = rows.map(function(r) {
+    var vecCap = '<div class="cap vec">vec ' + fmtBytes(r.sizeVec) + ' / ' + fmtMs(r.loadVec) + '</div>'
+      + (r.sizeVecGz != null
+        ? '<div class="cap vecgz">+gz ' + fmtBytes(r.sizeVecGz) + ' / ' + fmtMs(r.loadVecGz) + '</div>'
+        : '');
+    return '<div class="preview-row">'
+      + '<div><div style="font-weight:600;">CP ' + r.cp + '</div><div class="meta">' + r.strokes + ' strokes</div></div>'
+      + '<div><img src="' + r.vecThumb  + '"/>' + vecCap + '</div>'
+      + '<div><img src="' + r.pngThumb  + '"/><div class="cap png">png ' + fmtBytes(r.sizePng) + ' / ' + fmtMs(r.loadPng) + '</div></div>'
+      + '<div><img src="' + (r.webpThumb || '') + '"/><div class="cap webp">webp ' + (r.sizeWebp != null ? fmtBytes(r.sizeWebp) + ' / ' + fmtMs(r.loadWebp) : '—') + '</div></div>'
+      + '</div>';
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Mode picker — click a button to run with that stroke count. Buttons
+// are disabled while a run is in progress; on completion they re-enable
+// so the user can hop between modes without reloading.
+// ─────────────────────────────────────────────────────────────────────
+function startRun(strokeCount) {
+  // Reset UI for this run.
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('chart-size').innerHTML  = '';
+  document.getElementById('chart-load').innerHTML  = '';
+  document.getElementById('tbl').innerHTML         = '';
+  document.getElementById('final-grid').innerHTML  = '';
+  document.getElementById('previews').innerHTML    = '';
+  var p = document.getElementById('progress');
+  p.style.display = 'block';
+  p.innerHTML = 'Starting run for <b>' + strokeCount + '</b> strokes…<div class="bar"><div></div></div>';
+
+  var btns = document.querySelectorAll('.mode-btn');
+  btns.forEach(function(b){ b.disabled = true; });
+
+  run(strokeCount)
+    .catch(function(err) {
+      console.error(err);
+      p.innerHTML = '<span style="color:#ff6b7c;">Run failed: ' + (err && err.message || err) + '</span>';
+    })
+    .finally(function() {
+      btns.forEach(function(b){ b.disabled = false; });
+    });
+}
+
+window.addEventListener('load', function() {
+  document.querySelectorAll('.mode-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      startRun(parseInt(btn.dataset.strokes, 10));
+    });
+  });
+});
+</script>
+
+</body>
+</html>
