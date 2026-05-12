@@ -385,9 +385,7 @@ function onMenuMouseOut()
 
 function onMenuSave()
 {
-	// window.open(canvas.toDataURL('image/png'),'mywindow');
-	flatten();
-	window.open(flattenCanvas.toDataURL('image/png'),'mywindow');
+	saveToLocalStorage();
 }
 
 function onMenuClear()
