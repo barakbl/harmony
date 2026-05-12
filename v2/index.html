@@ -7895,8 +7895,12 @@ function init()
 	if (USER_AGENT.search("android") > -1 || USER_AGENT.search("iphone") > -1)
 		BRUSH_SIZE = 2;
 
-	if (USER_AGENT.search("safari") > -1 && USER_AGENT.search("chrome") == -1) // Safari
-		STORAGE = false;
+	// Legacy: the original Harmony disabled STORAGE on Safari because the
+	// PNG-dataURL → localStorage path tripped the 5 MB quota. v2 saves to
+	// IndexedDB instead, which is fine on Safari/iOS — and worse, the old
+	// check misfired on iOS Chrome too (its UA contains "crios" but not the
+	// literal "chrome"), so both iOS browsers ended up on the 'unavailable'
+	// pip with no autosave. Removed.
 
 	document.body.style.backgroundRepeat = 'no-repeat';
 	document.body.style.backgroundPosition = 'center center';
@@ -8004,6 +8008,34 @@ function init()
 	try { localStorage.removeItem('harmonyMenuCollapsed'); } catch (e) {}
 	try { localStorage.removeItem('harmonyMenuHidden'); } catch (e) {}
 
+	// Color preferences live in localStorage independently of the canvas
+	// blob — they're tiny, so always-restore is safe and keeps the user's
+	// last-picked FG / secondary / background colors across reloads.
+	try {
+		if (localStorage['harmony-color'])
+		{
+			let array = JSON.parse(localStorage['harmony-color']);
+			COLOR[0] = array[0];
+			COLOR[1] = array[1];
+			COLOR[2] = array[2];
+		}
+		if (localStorage['harmony-color-alt'])
+		{
+			let array = JSON.parse(localStorage['harmony-color-alt']);
+			COLOR_ALT[0] = array[0];
+			COLOR_ALT[1] = array[1];
+			COLOR_ALT[2] = array[2];
+		}
+		if (localStorage['harmony-bg'])
+		{
+			let array = JSON.parse(localStorage['harmony-bg']);
+			BACKGROUND_COLOR[0] = array[0];
+			BACKGROUND_COLOR[1] = array[1];
+			BACKGROUND_COLOR[2] = array[2];
+			document.body.style.backgroundColor = 'rgb(' + BACKGROUND_COLOR[0] + ', ' + BACKGROUND_COLOR[1] + ', ' + BACKGROUND_COLOR[2] + ')';
+		}
+	} catch (e) {}
+
 	if (STORAGE)
 	{
 		// Async canvas load via IndexedDB (with one-time migration from the
@@ -8032,38 +8064,10 @@ function init()
 			img.src = url;
 		}).catch(function(err) {
 			console.warn('[harmony] loadCanvas failed:', err);
+			if (menu && menu.setSaveStatus) menu.setSaveStatus('error');
 		});
 	} else if (menu && menu.setSaveStatus) {
 		menu.setSaveStatus('unavailable');
-
-		if (localStorage['harmony-color'])
-		{
-			let array = JSON.parse(localStorage['harmony-color']);
-
-			COLOR[0] = array[0];
-			COLOR[1] = array[1];
-			COLOR[2] = array[2];
-		}
-
-		if (localStorage['harmony-color-alt'])
-		{
-			let array = JSON.parse(localStorage['harmony-color-alt']);
-
-			COLOR_ALT[0] = array[0];
-			COLOR_ALT[1] = array[1];
-			COLOR_ALT[2] = array[2];
-		}
-
-		if (localStorage['harmony-bg'])
-		{
-			let array = JSON.parse(localStorage['harmony-bg']);
-
-			BACKGROUND_COLOR[0] = array[0];
-			BACKGROUND_COLOR[1] = array[1];
-			BACKGROUND_COLOR[2] = array[2];
-
-			document.body.style.backgroundColor = 'rgb(' + BACKGROUND_COLOR[0] + ', ' + BACKGROUND_COLOR[1] + ', ' + BACKGROUND_COLOR[2] + ')';
-		}
 	}
 
 	foregroundColorSelector.setColor( COLOR );

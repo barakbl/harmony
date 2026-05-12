@@ -164,6 +164,35 @@ if (defs) {
 	}
 }
 
+// ── 8. iOS save regression: STORAGE must not be force-disabled by
+//      sniffing "safari" / "chrome" in the UA. iOS Chrome's UA is
+//      "CriOS"-flavored — it contains "safari" but NOT the literal
+//      "chrome", so the old check incidentally disabled autosave on
+//      both iOS Safari AND iOS Chrome, leaving the pip stuck on
+//      'unavailable'. ──────────────────────────────────────────────
+{
+	const re = /STORAGE\s*=\s*false/;
+	const inits = [];
+	let m;
+	const all = /STORAGE\s*=\s*false/g;
+	let r;
+	while ((r = all.exec(html)) !== null) inits.push(r.index);
+	if (inits.length === 0) {
+		ok('STORAGE is never force-disabled at runtime (iOS Safari/Chrome get autosave)');
+	} else {
+		// Allow it only if it's not gated on a "safari"/"chrome" UA sniff.
+		let badSniff = false;
+		for (const idx of inits) {
+			const window = html.slice(Math.max(0, idx - 200), idx + 80);
+			if (/USER_AGENT\.search\(\s*["']safari["']/i.test(window)) {
+				badSniff = true; break;
+			}
+		}
+		if (badSniff) fail('STORAGE = false gated on Safari UA sniff — disables autosave on iOS Chrome (CriOS) too');
+		else          ok('STORAGE = false present but not gated on a Safari UA sniff');
+	}
+}
+
 console.log();
 if (failures === 0) {
 	console.log(`${GREEN}All smoke tests passed.${RESET}`);
