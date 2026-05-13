@@ -6244,6 +6244,9 @@ Menu.prototype =
 		this.sizeSlider.addEventListener('input', function() {
 			BRUSH_SIZE = parseInt(scope.sizeSlider.value, 10);
 			scope.sizeLabel.textContent = String(BRUSH_SIZE);
+			if (typeof context !== 'undefined' && context) {
+				context.lineCap = BRUSH_SIZE == 1 ? 'butt' : 'round';
+			}
 			if (typeof refreshCursorRing === 'function') refreshCursorRing();
 		}, false);
 
@@ -7943,6 +7946,7 @@ function init()
 	context = canvas.getContext("2d");
 	context.save();
 	context.scale(PIXEL_RATIO, PIXEL_RATIO);
+	context.lineCap = BRUSH_SIZE == 1 ? 'butt' : 'round';
 
 	// UI overlay canvas — symmetry guides + straight-line preview (non-printing)
 	overlayCanvas = document.createElement("canvas");
@@ -9400,24 +9404,33 @@ function onCanvasMouseDown( event )
 
 function onCanvasMouseMove( event )
 {
-	if ( event.pointerType === 'pen' ) {
-		BRUSH_PRESSURE = Math.max( 0.05, event.pressure );
-		BRUSH_TILT_X   = event.tiltX || 0;
-		BRUSH_TILT_Y   = event.tiltY || 0;
-	} else {
-		BRUSH_PRESSURE = 1;
-		BRUSH_TILT_X   = 0;
-		BRUSH_TILT_Y   = 0;
-	}
+	var events = ( event.getCoalescedEvents && event.getCoalescedEvents().length )
+		? event.getCoalescedEvents()
+		: [ event ];
 
-	var pos = screenToCanvas(event.clientX, event.clientY);
-	pos = applyShiftConstraint(pos);
-	brush.stroke( pos.x, pos.y );
-
-	var symPoints = getSymmetryPoints(pos.x, pos.y);
-	for (var si = 0; si < symmetryBrushes.length; si++)
+	for (var ei = 0; ei < events.length; ei++)
 	{
-		symmetryBrushes[si].stroke( symPoints[si].x, symPoints[si].y );
+		var evt = events[ei];
+
+		if ( event.pointerType === 'pen' ) {
+			BRUSH_PRESSURE = Math.max( 0.05, evt.pressure );
+			BRUSH_TILT_X   = evt.tiltX || 0;
+			BRUSH_TILT_Y   = evt.tiltY || 0;
+		} else {
+			BRUSH_PRESSURE = 1;
+			BRUSH_TILT_X   = 0;
+			BRUSH_TILT_Y   = 0;
+		}
+
+		var pos = screenToCanvas(evt.clientX, evt.clientY);
+		pos = applyShiftConstraint(pos);
+		brush.stroke( pos.x, pos.y );
+
+		var symPoints = getSymmetryPoints(pos.x, pos.y);
+		for (var si = 0; si < symmetryBrushes.length; si++)
+		{
+			symmetryBrushes[si].stroke( symPoints[si].x, symPoints[si].y );
+		}
 	}
 
 	gifMaybeCapture();
