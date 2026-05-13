@@ -6356,6 +6356,9 @@ Menu.prototype =
 		this.sizeSlider.addEventListener('input', function() {
 			BRUSH_SIZE = parseInt(scope.sizeSlider.value, 10);
 			scope.sizeLabel.textContent = String(BRUSH_SIZE);
+			if (typeof context !== 'undefined' && context) {
+				context.lineCap = BRUSH_SIZE == 1 ? 'butt' : 'round';
+			}
 			if (typeof refreshCursorRing === 'function') refreshCursorRing();
 		}, false);
 
@@ -7881,6 +7884,7 @@ function init()
 	context = canvas.getContext("2d");
 	context.save();
 	context.scale(PIXEL_RATIO, PIXEL_RATIO);
+	context.lineCap = BRUSH_SIZE == 1 ? 'butt' : 'round';
 
 	// UI overlay canvas — symmetry guides + straight-line preview (non-printing)
 	overlayCanvas = document.createElement("canvas");
