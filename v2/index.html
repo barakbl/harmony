@@ -6286,7 +6286,7 @@ Menu.prototype =
 
 		// Build wide rows for the overflow panel
 		this.download         = rowBtn(ICON.download, 'Download', 'Save (compact WebP, or PNG when Lossless is on)');
-		this.upload           = rowBtn(ICON.upload,   'Open',     'Open .harmony file');
+		this.upload           = rowBtn(ICON.upload,   'Open',     'Open an image (PNG / WebP / JPEG, or legacy .harmony)');
 
 		// Lossless toggle — defaults to off (= compact WebP). Persists so a
 		// user who prefers archival PNG keeps that choice across sessions.
@@ -8659,45 +8659,23 @@ function onMenuDownload( format )
 	// the user explicitly picks "Download · lossless".
 	var mime    = format === 'png' ? 'image/png'  : 'image/webp';
 	var quality = format === 'png' ? undefined    : 0.92;
+	var ext     = format === 'png' ? 'png'        : 'webp';
 
 	flatten();
 
-	var data = flattenCanvas.toDataURL(mime, quality);
-
-	var historyData = [];
-	var tempCanvas = document.createElement('canvas');
-	tempCanvas.width = canvas.width;
-	tempCanvas.height = canvas.height;
-	var tempCtx = tempCanvas.getContext('2d');
-
-	for (var i = 0; i < undoHistory.length; i++)
-	{
-		tempCtx.putImageData(undoHistory[i], 0, 0);
-		historyData.push(tempCanvas.toDataURL(mime, quality));
-	}
-
-	var metadata = '<metadata><harmony:history xmlns:harmony="urn:harmony" index="' + historyIndex + '">'
-		+ '<![CDATA[' + JSON.stringify(historyData) + ']]>'
-		+ '</harmony:history></metadata>';
-
-	var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' + SCREEN_WIDTH + '" height="' + SCREEN_HEIGHT + '">'
-		+ metadata
-		+ '<image width="' + SCREEN_WIDTH + '" height="' + SCREEN_HEIGHT + '" xlink:href="' + data + '"/>'
-		+ '</svg>';
-
-	var blob = new Blob([svg], { type: 'image/svg+xml' });
-	var url = URL.createObjectURL(blob);
-
-	var a = document.createElement('a');
-	a.href = url;
-	var d = new Date();
-	var pad = function(n) { return n.toString().padStart(2, '0'); };
-	var dateStr = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
-	var timeStr = pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
-	a.download = 'harmony_' + dateStr + '_' + timeStr + '.harmony';
-	a.click();
-
-	URL.revokeObjectURL(url);
+	flattenCanvas.toBlob(function(blob) {
+		if (!blob) return;
+		var url = URL.createObjectURL(blob);
+		var a = document.createElement('a');
+		a.href = url;
+		var d = new Date();
+		var pad = function(n) { return n.toString().padStart(2, '0'); };
+		var dateStr = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+		var timeStr = pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+		a.download = 'harmony_' + dateStr + '_' + timeStr + '.' + ext;
+		a.click();
+		URL.revokeObjectURL(url);
+	}, mime, quality);
 }
 
 function gifInitRecCanvas()
@@ -9202,104 +9180,144 @@ function onMenuUpload()
 {
 	var input = document.createElement('input');
 	input.type = 'file';
-	input.accept = '.harmony';
+	// Plain images are the new save format. .harmony (SVG with embedded
+	// history) is the legacy format from older v2 builds — still accepted.
+	input.accept = '.harmony,image/png,image/webp,image/jpeg';
 
 	input.addEventListener('change', function()
 	{
 		var file = input.files[0];
+		if (!file) return;
 
-		if (!file)
-			return;
+		var isHarmonyFile = /\.harmony$/i.test(file.name) ||
+		                    file.type === 'image/svg+xml';
 
-		var textReader = new FileReader();
-
-		textReader.addEventListener('load', function()
-		{
-			var svgText = textReader.result;
-			var parser = new DOMParser();
-			var doc = parser.parseFromString(svgText, 'image/svg+xml');
-			var historyEl = doc.getElementsByTagNameNS('urn:harmony', 'history')[0];
-			var savedHistory = null;
-			var savedIndex = -1;
-
-			if (historyEl)
-			{
-				try
-				{
-					savedHistory = JSON.parse(historyEl.textContent);
-					savedIndex = parseInt(historyEl.getAttribute('index'), 10);
-				}
-				catch(e)
-				{
-					savedHistory = null;
-				}
-			}
-
-			var imageEl = doc.getElementsByTagNameNS('http://www.w3.org/2000/svg', 'image')[0];
-			var href = imageEl ? (imageEl.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || imageEl.getAttribute('href')) : null;
-
-			if (!href)
-				return;
-
-			var image = new Image();
-
-			image.addEventListener('load', function()
-			{
-				context.setTransform(1, 0, 0, 1, 0, 0);
-				context.clearRect(0, 0, canvas.width, canvas.height);
-				context.drawImage(image, 0, 0);
-				context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
-
-				_canvasDirty = true;
-				saveCanvas();
-
-				if (savedHistory && savedHistory.length > 0)
-				{
-					var loaded = 0;
-					var newHistory = new Array(savedHistory.length);
-
-					for (var i = 0; i < savedHistory.length; i++)
-					{
-						(function(idx)
-						{
-							var img = new Image();
-
-							img.addEventListener('load', function()
-							{
-								var tempCanvas = document.createElement('canvas');
-								tempCanvas.width = canvas.width;
-								tempCanvas.height = canvas.height;
-								var tempCtx = tempCanvas.getContext('2d');
-								tempCtx.drawImage(img, 0, 0);
-								newHistory[idx] = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-
-								loaded++;
-
-								if (loaded === savedHistory.length)
-								{
-									undoHistory = newHistory;
-									historyIndex = savedIndex;
-									syncBrushHistorySnapshots();
-								}
-							}, false);
-
-							img.src = savedHistory[idx];
-						})(i);
-					}
-				}
-				else
-				{
-					saveToHistory();
-				}
-			}, false);
-
-			image.src = href;
-		}, false);
-
-		textReader.readAsText(file);
+		if (isHarmonyFile) loadHarmonyFile(file);
+		else               loadImageFile(file);
 	}, false);
 
 	input.click();
+}
+
+function loadImageFile(file)
+{
+	var url = URL.createObjectURL(file);
+	var image = new Image();
+
+	image.addEventListener('load', function()
+	{
+		context.setTransform(1, 0, 0, 1, 0, 0);
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.drawImage(image, 0, 0);
+		context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
+
+		URL.revokeObjectURL(url);
+
+		_canvasDirty = true;
+		saveCanvas();
+
+		// Fresh history: discard whatever was there, start with this image as
+		// the only restorable state.
+		undoHistory = [];
+		historyIndex = -1;
+		saveToHistory();
+		syncBrushHistorySnapshots();
+	}, false);
+
+	image.src = url;
+}
+
+function loadHarmonyFile(file)
+{
+	var textReader = new FileReader();
+
+	textReader.addEventListener('load', function()
+	{
+		var svgText = textReader.result;
+		var parser = new DOMParser();
+		var doc = parser.parseFromString(svgText, 'image/svg+xml');
+		var historyEl = doc.getElementsByTagNameNS('urn:harmony', 'history')[0];
+		var savedHistory = null;
+		var savedIndex = -1;
+
+		if (historyEl)
+		{
+			try
+			{
+				savedHistory = JSON.parse(historyEl.textContent);
+				savedIndex = parseInt(historyEl.getAttribute('index'), 10);
+			}
+			catch(e)
+			{
+				savedHistory = null;
+			}
+		}
+
+		var imageEl = doc.getElementsByTagNameNS('http://www.w3.org/2000/svg', 'image')[0];
+		var href = imageEl ? (imageEl.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || imageEl.getAttribute('href')) : null;
+
+		if (!href)
+			return;
+
+		var image = new Image();
+
+		image.addEventListener('load', function()
+		{
+			context.setTransform(1, 0, 0, 1, 0, 0);
+			context.clearRect(0, 0, canvas.width, canvas.height);
+			context.drawImage(image, 0, 0);
+			context.setTransform(PIXEL_RATIO, 0, 0, PIXEL_RATIO, 0, 0);
+
+			_canvasDirty = true;
+			saveCanvas();
+
+			if (savedHistory && savedHistory.length > 0)
+			{
+				var loaded = 0;
+				var newHistory = new Array(savedHistory.length);
+
+				for (var i = 0; i < savedHistory.length; i++)
+				{
+					(function(idx)
+					{
+						var img = new Image();
+
+						img.addEventListener('load', function()
+						{
+							var tempCanvas = document.createElement('canvas');
+							tempCanvas.width = canvas.width;
+							tempCanvas.height = canvas.height;
+							var tempCtx = tempCanvas.getContext('2d');
+							tempCtx.drawImage(img, 0, 0);
+							newHistory[idx] = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+							loaded++;
+
+							if (loaded === savedHistory.length)
+							{
+								undoHistory = newHistory;
+								historyIndex = savedIndex;
+								syncBrushHistorySnapshots();
+							}
+						}, false);
+
+						img.src = savedHistory[idx];
+					})(i);
+				}
+			}
+			else
+			{
+				undoHistory = [];
+				historyIndex = -1;
+				saveToHistory();
+				syncBrushHistorySnapshots();
+			}
+		}, false);
+
+		image.src = href;
+	}, false);
+
+	textReader.readAsText(file);
 }
 
 function onMenuClear()

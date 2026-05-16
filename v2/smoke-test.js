@@ -193,6 +193,121 @@ if (defs) {
 	}
 }
 
+// ── 9. Save format: download is a plain image, upload accepts both
+//      plain images and legacy .harmony (SVG-with-history) ──────────
+function extractFunctionBody(name) {
+	const re = new RegExp(`\\nfunction\\s+${name}\\s*\\([^)]*\\)\\s*\\{`);
+	const start = html.search(re);
+	if (start < 0) return null;
+	let i = html.indexOf('{', start);
+	let depth = 0, end = -1;
+	for (; i < html.length; i++) {
+		const c = html[i];
+		if (c === '{') depth++;
+		else if (c === '}') {
+			depth--;
+			if (depth === 0) { end = i; break; }
+		}
+	}
+	return end < 0 ? null : html.slice(start, end + 1);
+}
+
+function fnDefinedOnce(name) {
+	const re = new RegExp(`\\nfunction\\s+${name}\\s*\\(`, 'g');
+	return (html.match(re) || []).length;
+}
+
+{
+	const download = extractFunctionBody('onMenuDownload');
+	if (!download) {
+		fail('onMenuDownload not found');
+	} else {
+		// History must not be embedded in the saved file anymore.
+		if (/harmony:history/.test(download)) fail('onMenuDownload still embeds <harmony:history>');
+		else                                   ok  ('onMenuDownload no longer embeds <harmony:history>');
+
+		if (/undoHistory\s*\[/.test(download)) fail('onMenuDownload still iterates undoHistory[]');
+		else                                   ok  ('onMenuDownload no longer iterates undoHistory[]');
+
+		if (/JSON\.stringify\s*\(\s*historyData\b/.test(download)) fail('onMenuDownload still serializes historyData');
+		else                                                        ok  ('onMenuDownload no longer serializes historyData');
+
+		// Must produce a real raster file, not an SVG wrapper.
+		if (/['"]image\/svg\+xml['"]/.test(download)) fail('onMenuDownload still creates an image/svg+xml blob');
+		else                                           ok  ('onMenuDownload no longer wraps in SVG');
+
+		if (/\.toBlob\b/.test(download)) ok  ('onMenuDownload uses toBlob');
+		else                              fail('onMenuDownload does not use toBlob');
+
+		// Filename should end with an ext variable derived from format, or a
+		// literal raster extension.
+		if (/a\.download\s*=\s*[^;]*\+\s*ext\b/.test(download) || /\.png['"]|\.webp['"]|\.jpe?g['"]/i.test(download)) {
+			ok('onMenuDownload writes a raster extension (png/webp)');
+		} else {
+			fail('onMenuDownload no longer writes a recognisable raster extension');
+		}
+	}
+}
+
+{
+	const upload = extractFunctionBody('onMenuUpload');
+	if (!upload) {
+		fail('onMenuUpload not found');
+	} else {
+		if (/accept\s*=\s*['"][^'"]*\.harmony[^'"]*['"]/.test(upload)) ok('onMenuUpload still accepts .harmony');
+		else                                                           fail('onMenuUpload no longer accepts .harmony');
+
+		if (/accept\s*=\s*['"][^'"]*image\/png[^'"]*['"]/.test(upload)) ok('onMenuUpload accepts image/png');
+		else                                                            fail('onMenuUpload does not accept image/png');
+
+		// The dispatcher must branch on file type.
+		if (/loadHarmonyFile\s*\(/.test(upload) && /loadImageFile\s*\(/.test(upload)) {
+			ok('onMenuUpload dispatches to loadHarmonyFile + loadImageFile');
+		} else {
+			fail('onMenuUpload no longer dispatches to both loaders');
+		}
+	}
+}
+
+{
+	for (const name of ['loadImageFile', 'loadHarmonyFile']) {
+		const n = fnDefinedOnce(name);
+		if (n === 1) ok(`${name} defined exactly once`);
+		else          fail(`${name} defined ${n} time(s) — expected 1`);
+	}
+
+	const img = extractFunctionBody('loadImageFile');
+	if (img) {
+		if (/URL\.createObjectURL/.test(img)) ok('loadImageFile uses URL.createObjectURL');
+		else                                   fail('loadImageFile does not use URL.createObjectURL');
+
+		if (/URL\.revokeObjectURL/.test(img)) ok('loadImageFile revokes the object URL');
+		else                                   fail('loadImageFile leaks the object URL');
+
+		if (/undoHistory\s*=\s*\[\s*\]/.test(img) && /saveToHistory\s*\(\s*\)/.test(img)) {
+			ok('loadImageFile resets history and snapshots the loaded image');
+		} else {
+			fail('loadImageFile does not reset history before snapshotting');
+		}
+	}
+
+	const harm = extractFunctionBody('loadHarmonyFile');
+	if (harm) {
+		// Back-compat: the SVG loader must still find the embedded history.
+		if (/getElementsByTagNameNS\(\s*['"]urn:harmony['"]/.test(harm)) {
+			ok('loadHarmonyFile still parses the legacy <harmony:history> metadata');
+		} else {
+			fail('loadHarmonyFile no longer parses legacy <harmony:history> metadata');
+		}
+
+		if (/undoHistory\s*=\s*newHistory/.test(harm) && /historyIndex\s*=\s*savedIndex/.test(harm)) {
+			ok('loadHarmonyFile restores the saved undoHistory and historyIndex');
+		} else {
+			fail('loadHarmonyFile no longer restores the saved history');
+		}
+	}
+}
+
 console.log();
 if (failures === 0) {
 	console.log(`${GREEN}All smoke tests passed.${RESET}`);
