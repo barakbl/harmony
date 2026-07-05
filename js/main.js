@@ -387,7 +387,17 @@ function onMenuSave()
 {
 	// window.open(canvas.toDataURL('image/png'),'mywindow');
 	flatten();
-	window.open(flattenCanvas.toDataURL('image/png'),'mywindow');
+	flattenCanvas.toBlob(function(blob)
+	{
+		var url = URL.createObjectURL(blob);
+		var link = document.createElement('a');
+		link.download = 'harmony.png';
+		link.href = url;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	}, 'image/png');
 }
 
 function onMenuClear()
