@@ -129,6 +129,45 @@
 				transition-delay: 250ms;
 			}
 
+			/* ─── Drag handle ──────────────────────────────────────── */
+			.drag-handle {
+				width: 22px;
+				height: 34px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				color: var(--ink-mute);
+				cursor: grab;
+				user-select: none;
+				-webkit-user-select: none;
+				touch-action: none;
+				flex: 0 0 auto;
+			}
+			.drag-handle:active { cursor: grabbing; }
+			.drag-handle svg { width: 14px; height: 16px; display: block; }
+
+			/* ─── Zoom indicator ───────────────────────────────────── */
+			.zoom-pill {
+				appearance: none;
+				-webkit-appearance: none;
+				min-width: 46px;
+				height: 28px;
+				padding: 0 6px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border: 0;
+				border-radius: 999px;
+				background: var(--chip);
+				font-family: var(--mono);
+				font-size: 11px;
+				color: var(--ink-soft);
+				cursor: pointer;
+				font-variant-numeric: tabular-nums;
+				transition: background 120ms ease, color 120ms ease;
+			}
+			.zoom-pill:hover { background: var(--hover); color: var(--ink); }
+
 			/* ─── Single colour swatch ─────────────────────────────── */
 			.swatch {
 				width: 24px;

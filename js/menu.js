@@ -8,7 +8,8 @@ var ICON =
 	size:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2"/><circle cx="14" cy="10" r="3.5"/></svg>',
 	upload:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
 	download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-	warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.9" fill="currentColor"/></svg>'
+	warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.9" fill="currentColor"/></svg>',
+	grip:    '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/></svg>'
 };
 
 function Menu()
@@ -20,6 +21,10 @@ Menu.prototype =
 {
 	container: null,
 	overflowPanel: null,
+	dragHandle: null,
+	moved: false,
+
+	zoomPill: null,
 
 	foregroundColor: null,
 	backgroundColor: null,
@@ -53,6 +58,12 @@ Menu.prototype =
 		this.container.className = 'gui';
 		this.container.style.position = 'absolute';
 		this.container.style.top = '10px';
+
+		this.dragHandle = document.createElement("div");
+		this.dragHandle.className = 'drag-handle';
+		this.dragHandle.title = 'Move toolbar';
+		this.dragHandle.innerHTML = ICON.grip;
+		this.container.appendChild(this.dragHandle);
 
 		this.foregroundColor = document.createElement("canvas");
 		this.foregroundColor.className = 'swatch';
@@ -90,6 +101,14 @@ Menu.prototype =
 		sizeCell.appendChild(this.sizeVal);
 		this.container.appendChild(sizeCell);
 		this.setBrushSize( BRUSH_SIZE );
+
+		// Zoom indicator (ctrl + scroll to zoom; click to reset)
+		this.zoomPill = document.createElement("button");
+		this.zoomPill.type = 'button';
+		this.zoomPill.className = 'zoom-pill';
+		this.zoomPill.title = 'Reset zoom';
+		this.zoomPill.textContent = '100%';
+		this.container.appendChild(this.zoomPill);
 
 		this.save = this.iconButton(ICON.save, 'Save');
 		this.container.appendChild(this.save);
@@ -190,6 +209,41 @@ Menu.prototype =
 				scope.closeOverflow();
 			}
 		}, true);
+
+		// Drag the toolbar by its grip handle.
+		var dragging = false, startX, startY, startLeft, startTop;
+
+		this.dragHandle.addEventListener('pointerdown', function(event)
+		{
+			event.preventDefault();
+			event.stopPropagation();
+			dragging = true;
+			scope.moved = true;
+			startX = event.clientX;
+			startY = event.clientY;
+			var rect = scope.container.getBoundingClientRect();
+			startLeft = rect.left;
+			startTop = rect.top;
+			scope.dragHandle.setPointerCapture(event.pointerId);
+		}, false);
+
+		this.dragHandle.addEventListener('pointermove', function(event)
+		{
+			if (!dragging) return;
+			var width = scope.container.offsetWidth;
+			var height = scope.container.offsetHeight;
+			var left = Math.max(4, Math.min(window.innerWidth - width - 4, startLeft + (event.clientX - startX)));
+			var top = Math.max(4, Math.min(window.innerHeight - height - 4, startTop + (event.clientY - startY)));
+			scope.container.style.left = left + 'px';
+			scope.container.style.top = top + 'px';
+		}, false);
+
+		this.dragHandle.addEventListener('pointerup', function(event)
+		{
+			dragging = false;
+			if (scope.dragHandle.hasPointerCapture(event.pointerId))
+				scope.dragHandle.releasePointerCapture(event.pointerId);
+		}, false);
 	},
 
 	// ── element helpers ──
@@ -264,6 +318,11 @@ Menu.prototype =
 	{
 		this.sizeSlider.value = Math.min( size, parseInt(this.sizeSlider.max) );
 		this.sizeVal.textContent = size;
+	},
+
+	setZoomLevel: function( level )
+	{
+		this.zoomPill.textContent = Math.round( level * 100 ) + '%';
 	},
 
 	// ── colour swatches ──

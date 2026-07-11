@@ -36,7 +36,8 @@ About.prototype =
 			'<span><span class="key">d</span> <span class="key">f</span> brush size</span>' +
 			'<span><span class="key">r</span> reset brush</span>' +
 			'<span><span class="key">shift</span> colour wheel</span>' +
-			'<span><span class="key">alt</span> eyedropper</span>';
+			'<span><span class="key">alt</span> eyedropper</span>' +
+			'<span><span class="key">ctrl</span> + scroll to zoom</span>';
 		this.container.appendChild(text);
 
 		text = document.createElement("hr");

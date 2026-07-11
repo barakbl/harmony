@@ -1,6 +1,8 @@
 const REV = 10;
 const BRUSHES = ["sketchy", "shaded", "chrome", "fur", "longfur", "web", "", "simple", "squares", "ribbon", "", "circles", "grid"];
 const USER_AGENT = navigator.userAgent.toLowerCase();
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 8;
 
 var SCREEN_WIDTH = window.innerWidth,
     SCREEN_HEIGHT = window.innerHeight,
@@ -30,6 +32,9 @@ var SCREEN_WIDTH = window.innerWidth,
     isMenuMouseOver = false,
     isCanvasDirty = false,
     isModalOpen = false,
+    zoomLevel = 1,
+    panX = 0,
+    panY = 0,
     shiftKeyIsDown = false,
     altKeyIsDown = false;
 
@@ -98,6 +103,7 @@ function init()
 	menu.background.addEventListener('touchend', onMenuBackgroundColor, false);
 	menu.selector.addEventListener('change', onMenuSelectorChange, false);
 	menu.sizeSlider.addEventListener('input', onMenuSizeChange, false);
+	menu.zoomPill.addEventListener('click', onMenuZoomReset, false);
 	menu.save.addEventListener('click', onMenuSave, false);
 	menu.save.addEventListener('touchend', onMenuSave, false);
 	menu.clear.addEventListener('click', onMenuClear, false);
@@ -193,6 +199,7 @@ function init()
 
 	canvas.addEventListener('mousedown', onCanvasMouseDown, { passive: false });
 	canvas.addEventListener('touchstart', onCanvasTouchStart, { passive: false });
+	canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
 
 	onWindowResize(null);
 }
@@ -211,10 +218,14 @@ function onWindowResize()
 	SCREEN_WIDTH = window.innerWidth;
 	SCREEN_HEIGHT = window.innerHeight;
 
-	menu.container.style.left = ((SCREEN_WIDTH - menu.container.offsetWidth) / 2) + 'px';
+	if (!menu.moved)
+		menu.container.style.left = ((SCREEN_WIDTH - menu.container.offsetWidth) / 2) + 'px';
 
 	about.container.style.left = ((SCREEN_WIDTH - about.container.offsetWidth) / 2) + 'px';
 	about.container.style.top = ((SCREEN_HEIGHT - about.container.offsetHeight) / 2) + 'px';
+
+	clampPan();
+	applyZoomTransform();
 }
 
 function onWindowKeyDown( event )
@@ -776,21 +787,78 @@ function onMenuAbout()
 }
 
 
+// ZOOM
+
+function screenToCanvas( x, y )
+{
+	return { x: (x - panX) / zoomLevel, y: (y - panY) / zoomLevel };
+}
+
+function applyZoomTransform()
+{
+	canvas.style.transformOrigin = '0 0';
+	canvas.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + zoomLevel + ')';
+
+	if (menu) menu.setZoomLevel( zoomLevel );
+}
+
+function clampPan()
+{
+	panX = Math.min(0, Math.max(SCREEN_WIDTH - SCREEN_WIDTH * zoomLevel, panX));
+	panY = Math.min(0, Math.max(SCREEN_HEIGHT - SCREEN_HEIGHT * zoomLevel, panY));
+}
+
+function zoomAtPoint( newZoom, centerX, centerY )
+{
+	newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
+
+	if (newZoom === zoomLevel)
+		return;
+
+	panX = centerX - (centerX - panX) * (newZoom / zoomLevel);
+	panY = centerY - (centerY - panY) * (newZoom / zoomLevel);
+	zoomLevel = newZoom;
+
+	clampPan();
+	applyZoomTransform();
+}
+
+function onMenuZoomReset()
+{
+	zoomLevel = 1;
+	panX = 0;
+	panY = 0;
+	applyZoomTransform();
+}
+
+function onCanvasWheel( event )
+{
+	if (!event.ctrlKey)
+		return;
+
+	event.preventDefault();
+
+	zoomAtPoint( zoomLevel * Math.pow(1.0015, -event.deltaY), event.clientX, event.clientY );
+}
+
+
 // CANVAS
 
 function onCanvasMouseDown( event )
 {
-	var data, position;
+	var data, position, pos;
 
 	clearTimeout(saveTimeOut);
 	cleanPopUps();
+
+	pos = screenToCanvas( event.clientX, event.clientY );
 
 	if (altKeyIsDown)
 	{
 		flatten();
 
 		data = flattenCanvas.getContext("2d").getImageData(0, 0, flattenCanvas.width, flattenCanvas.height).data;
-		position = (event.clientX + (event.clientY * canvas.width)) * 4;
+		position = (Math.round(pos.x * PIXEL_RATIO) + Math.round(pos.y * PIXEL_RATIO) * flattenCanvas.width) * 4;
 
 		foregroundColorSelector.setColor( [ data[position], data[position + 1], data[position + 2] ] );
 
@@ -801,7 +869,7 @@ function onCanvasMouseDown( event )
 
 	isCanvasDirty = true;
 
-	brush.strokeStart( event.clientX, event.clientY );
+	brush.strokeStart( pos.x, pos.y );
 
 	window.addEventListener('mousemove', onCanvasMouseMove, { passive: false });
 	window.addEventListener('mouseup', onCanvasMouseUp, { passive: false });
@@ -809,9 +877,11 @@ function onCanvasMouseDown( event )
 
 function onCanvasMouseMove( event )
 {
+	var pos = screenToCanvas( event.clientX, event.clientY );
+
 	BRUSH_PRESSURE = wacom && wacom.isWacom ? wacom.pressure : 1;
 
-	brush.stroke( event.clientX, event.clientY );
+	brush.stroke( pos.x, pos.y );
 }
 
 function onCanvasMouseUp()
@@ -841,7 +911,8 @@ function onCanvasTouchStart( event )
 
 		isCanvasDirty = true;
 
-		brush.strokeStart( event.touches[0].pageX, event.touches[0].pageY );
+		var pos = screenToCanvas( event.touches[0].pageX, event.touches[0].pageY );
+		brush.strokeStart( pos.x, pos.y );
 
 		window.addEventListener('touchmove', onCanvasTouchMove, { passive: false });
 		window.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
@@ -853,7 +924,8 @@ function onCanvasTouchMove( event )
 	if(event.touches.length == 1)
 	{
 		event.preventDefault();
-		brush.stroke( event.touches[0].pageX, event.touches[0].pageY );
+		var pos = screenToCanvas( event.touches[0].pageX, event.touches[0].pageY );
+		brush.stroke( pos.x, pos.y );
 	}
 }
 
