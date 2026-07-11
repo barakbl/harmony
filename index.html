@@ -210,23 +210,21 @@
 				display: inline-flex;
 				align-items: center;
 				gap: 8px;
-				padding: 0 6px;
+				padding: 0 4px;
 				height: 34px;
 			}
-			.size-cell .size-icon { color: var(--ink-mute); display: inline-flex; }
-			.size-cell .size-icon svg { width: 16px; height: 16px; display: block; }
 			.size-cell .size-val {
 				font-family: var(--mono);
 				font-size: 11px;
 				color: var(--ink-soft);
-				min-width: 18px;
+				min-width: 16px;
 				text-align: right;
 				font-variant-numeric: tabular-nums;
 			}
 			input[type="range"] {
 				-webkit-appearance: none;
 				appearance: none;
-				width: 84px;
+				width: 66px;
 				height: 4px;
 				background: var(--chip);
 				border-radius: 999px;
@@ -482,6 +480,22 @@
 				color: var(--ink);
 				text-align: center;
 				line-height: 1.2;
+			}
+
+			/* ─── Mobile: tighten the toolbar so it fits narrow screens ─ */
+			@media (max-width: 640px) {
+				.gui { padding: 4px; gap: 0; }
+				.gui-divider { height: 18px; margin: 0 2px; }
+				.drag-handle { width: 16px; }
+				.drag-handle svg { width: 12px; }
+				.btn { width: 30px; height: 30px; }
+				.btn svg { width: 16px; }
+				.swatch { width: 22px; height: 22px; margin: 0 3px; }
+				select.pill { height: 30px; padding: 0 22px 0 10px; font-size: 11px; }
+				.size-cell { padding: 0 2px; gap: 5px; height: 30px; }
+				.size-cell .size-val { min-width: 12px; }
+				input[type="range"] { width: 46px; }
+				.zoom-pill { min-width: 38px; height: 26px; padding: 0 5px; font-size: 10px; }
 			}
 		</style>
 	</head>
