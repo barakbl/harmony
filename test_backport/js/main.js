@@ -35,6 +35,9 @@ var SCREEN_WIDTH = window.innerWidth,
     zoomLevel = 1,
     panX = 0,
     panY = 0,
+    pinching = false,
+    pinchStartDist = 0,
+    pinchStartZoom = 1,
     shiftKeyIsDown = false,
     altKeyIsDown = false;
 
@@ -901,9 +904,30 @@ function onCanvasMouseUp()
 
 //
 
+function touchDistance( touches )
+{
+	var dx = touches[0].pageX - touches[1].pageX;
+	var dy = touches[0].pageY - touches[1].pageY;
+	return Math.sqrt( dx * dx + dy * dy );
+}
+
 function onCanvasTouchStart( event )
 {
 	cleanPopUps();
+
+	if(event.touches.length == 2)
+	{
+		event.preventDefault();
+
+		pinching = true;
+		pinchStartDist = touchDistance( event.touches );
+		pinchStartZoom = zoomLevel;
+
+		window.addEventListener('touchmove', onCanvasTouchMove, { passive: false });
+		window.addEventListener('touchend', onCanvasTouchEnd, { passive: false });
+
+		return;
+	}
 
 	if(event.touches.length == 1)
 	{
@@ -921,6 +945,22 @@ function onCanvasTouchStart( event )
 
 function onCanvasTouchMove( event )
 {
+	if(pinching)
+	{
+		if(event.touches.length == 2 && pinchStartDist > 0)
+		{
+			event.preventDefault();
+
+			var dist = touchDistance( event.touches );
+			var centerX = (event.touches[0].pageX + event.touches[1].pageX) / 2;
+			var centerY = (event.touches[0].pageY + event.touches[1].pageY) / 2;
+
+			zoomAtPoint( pinchStartZoom * (dist / pinchStartDist), centerX, centerY );
+		}
+
+		return;
+	}
+
 	if(event.touches.length == 1)
 	{
 		event.preventDefault();
@@ -935,7 +975,10 @@ function onCanvasTouchEnd( event )
 	{
 		event.preventDefault();
 
-		brush.strokeEnd();
+		if (!pinching)
+			brush.strokeEnd();
+
+		pinching = false;
 
 		window.removeEventListener('touchmove', onCanvasTouchMove, { passive: false });
 		window.removeEventListener('touchend', onCanvasTouchEnd, { passive: false });
