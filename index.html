@@ -15,6 +15,7 @@
     --accent-stable: #56d391;       /* green */
     --accent-experimental: #b78bff; /* purple */
     --accent-classic: #8aa9c8;      /* steel-blue */
+    --accent-advanced: #ffc557;     /* amber */
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
@@ -29,8 +30,9 @@
   header.hero p a { color: var(--mute); border-bottom: 1px dotted var(--line); }
   header.hero p a:hover { color: var(--text); border-bottom-color: var(--text); }
 
-  .versions { display: grid; gap: 22px; grid-template-columns: repeat(3, 1fr); margin-bottom: 64px; }
-  @media (max-width: 880px) { .versions { grid-template-columns: 1fr; } }
+  .versions { display: grid; gap: 22px; grid-template-columns: repeat(4, 1fr); margin-bottom: 64px; }
+  @media (max-width: 1100px) { .versions { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .versions { grid-template-columns: 1fr; } }
 
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 24px 24px 22px; display: flex; flex-direction: column; min-height: 360px;
@@ -42,6 +44,9 @@
   .card.v1 .pill { background: rgba(138, 169, 200, 0.13); color: var(--accent-classic); }
   .card.v2 .pill { background: rgba( 86, 211, 145, 0.13); color: var(--accent-stable); }
   .card.v3 .pill { background: rgba(183, 139, 255, 0.13); color: var(--accent-experimental); }
+  .card.nk .pill { background: rgba(255, 197, 87, 0.14); color: var(--accent-advanced); }
+  /* v3 is experimental only — strike through its copy so it doesn't read as "use me" */
+  .card.v3 h2, .card.v3 .tag, .card.v3 ul li { text-decoration: line-through; text-decoration-color: rgba(183,139,255,0.6); }
   .card h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
   .card .tag { color: var(--mute); font-size: 13px; margin: 0 0 16px; }
   .card ul { margin: 0 0 22px; padding-left: 18px; color: var(--text); font-size: 13.5px; }
@@ -54,6 +59,8 @@
   .btn.primary.v1 { background: var(--accent-classic); color: #0f1116; }
   .btn.primary.v2 { background: var(--accent-stable);  color: #0f1116; }
   .btn.primary.v3 { background: var(--accent-experimental); color: #0f1116; }
+  .btn.primary.nk { background: var(--accent-advanced); color: #0f1116; }
+  .btn.primary.nk:hover { background: #ffd37e; }
   .btn.primary.v1:hover { background: #a0bcd6; }
   .btn.primary.v2:hover { background: #75dca6; }
   .btn.primary.v3:hover { background: #c8a4ff; }
@@ -96,12 +103,15 @@
 <body>
 
 <header class="hero">
-  <h1>Harmony <small>procedural drawing — two forks</small></h1>
+  <h1>Harmony <small>procedural drawing — forks &amp; successors</small></h1>
   <p>
     <a href="https://github.com/mrdoob/harmony" target="_blank" rel="noopener">Mr.doob's
-    Harmony</a> with its generative, neighbour-aware brushes (sketchy, chrome, fur,
-    web, …) — rebuilt with a modern UI as v2, and reimagined around a vector action log
-    as the experimental v3. v1 stays at mrdoob.com.
+    Harmony</a> and its generative, neighbour-aware brushes (sketchy, chrome, fur, web, …).
+    For the <b>classic experience</b>, use Mr.doob's original v1 — it's still the most
+    recommended. For a <b>full-featured tool built for newer, more capable hardware</b>
+    — layers, real pen-pressure, a smarter memory map — try
+    <a href="http://nekudot.app/" target="_blank" rel="noopener">Nekudot</a>, a from-scratch
+    reimagining. v2 is our modern UI rebuild; v3 is an experimental vector-format prototype.
   </p>
 </header>
 
@@ -109,7 +119,7 @@
 
   <!-- ─── v1 ─── -->
   <article class="card v1">
-    <span class="pill">classic · upstream</span>
+    <span class="pill">classic · most recommended</span>
     <h2>v1 — Mr.doob's Harmony</h2>
     <p class="tag">The actual original — hosted at mrdoob.com (this isn't our build, it's the upstream site).</p>
     <ul>
@@ -125,7 +135,7 @@
 
   <!-- ─── v2 ─── -->
   <article class="card v2">
-    <span class="pill">stable · recommended</span>
+    <span class="pill">modern UI rebuild</span>
     <h2>v2 — Modern UI</h2>
     <p class="tag">A full UI rebuild on top of v1's brush model. <b>Current stable build.</b></p>
     <ul>
@@ -144,12 +154,13 @@
 
   <!-- ─── v3 ─── -->
   <article class="card v3">
-    <span class="pill">experimental</span>
+    <span class="pill">experimental only</span>
     <h2>v3 — Vector format</h2>
     <p class="tag">v2 rebuilt around an action log. The canvas is just a render of the log.</p>
     <div class="warn">
-      <b>Not for daily use.</b> Vector replay diverges from live drawing for a few stateful
-      brushes; performance degrades on 100k-stroke logs. Keep using v2 for real work.
+      <b>Experimental — not for use.</b> Vector replay diverges from live drawing for a few
+      stateful brushes; performance degrades on 100k-stroke logs. A prototype for the format
+      only — use v1 or Nekudot for real work.
     </div>
     <ul>
       <li><b>Vector save format</b> — <code>.harmony</code> files are now a JSON action log (brush + color + pressure + tilt + seeded RNG state per stroke). Sessions go from MB to KB.</li>
@@ -161,6 +172,23 @@
     <div class="actions">
       <a class="btn primary v3" href="v3/index.html">Open v3</a>
       <a class="btn ghost" href="v3/benchmark.html">Benchmark</a>
+    </div>
+  </article>
+
+  <!-- ─── Nekudot ─── -->
+  <article class="card nk">
+    <span class="pill">advanced · full-featured</span>
+    <h2>Nekudot</h2>
+    <p class="tag">A from-scratch successor — the neighbour-line drawing idea rebuilt as a full tool for modern hardware. <b>Recommended when you want more than the classic.</b></p>
+    <ul>
+      <li><b>Layers</b> — compose, reorder, blend, lock; not a single flat canvas</li>
+      <li><b>Real pen-pressure support</b> — pressure, tilt and velocity drive every brush</li>
+      <li><b>Advanced memory map</b> — tiled canvas storage that scales to large, long sessions</li>
+      <li>Designed for newer, more capable devices — high-DPI, stylus, GPU-accelerated</li>
+      <li>Built from the ground up rather than forked from the 2010 source</li>
+    </ul>
+    <div class="actions">
+      <a class="btn primary nk" href="http://nekudot.app/" target="_blank" rel="noopener">Open Nekudot ↗</a>
     </div>
   </article>
 
